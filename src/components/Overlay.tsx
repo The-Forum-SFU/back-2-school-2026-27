@@ -113,8 +113,7 @@ export function Caption({ vp }: { vp: Viewport }) {
         color: '#FFFFFF',
       }}
     >
-      Back 2 School 2026 — The Forum University's Y2K blowout. Low-rise, glitter, chrome,
-      and everything 2001 forgot to leave behind.
+      Back 2 School 2026 - Low-rise, glitter, chrome, and everything 2001 forgot to leave behind.
     </motion.div>
   )
 }
@@ -168,16 +167,29 @@ export function EventInfo({ vp }: { vp: Viewport }) {
         alignItems: 'center',
       }}
     >
+      {/* Shrink-wraps to the width of "BACK 2 SCHOOL" so the badge can sit on
+          the text's left edge while the group as a whole stays centred on the
+          same axis as "SEPT 26" and the view button. */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
-          width: desktop ? '100%' : 252,
           marginBottom: desktop ? 32 : 12,
         }}
       >
-        <div style={{ position: 'relative', width: circle, height: circle }}>
+        {/* Hangs left of the text's edge so the badge reads as a deliberate
+            offset mark rather than a flush-aligned bullet. The negative margin
+            overflows the block without widening it, so the text below stays
+            centred on the same axis as "SEPT 26". */}
+        <div
+          style={{
+            position: 'relative',
+            width: circle,
+            height: circle,
+            marginLeft: desktop ? -12 : -8,
+          }}
+        >
           <svg
             width={circle}
             height={circle}
@@ -203,13 +215,16 @@ export function EventInfo({ vp }: { vp: Viewport }) {
               justifyContent: 'center',
               fontFamily: FONT,
               fontWeight: 500,
-              fontSize: desktop ? 15 : 10,
+              // A single glyph can carry more weight than the old 3-character
+              // "Y2K" did in the same circle.
+              fontSize: desktop ? 17 : 12,
+              lineHeight: 1,
               letterSpacing: '-0.04em',
               textTransform: 'uppercase',
               color: '#fff',
             }}
           >
-            Y2K
+            ★
           </span>
         </div>
         <div
@@ -314,7 +329,7 @@ export function Footer({ vp }: { vp: Viewport }) {
         justifyContent: desktop ? undefined : 'space-between',
       }}
     >
-      <span style={textStyle}>The Forum University (R) 2026</span>
+      <span style={textStyle}>The Forum University 2026</span>
       <span style={textStyle}>Privacy Policy</span>
     </div>
   )

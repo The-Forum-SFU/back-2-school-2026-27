@@ -4,8 +4,20 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const SYMBOLS = ['Y2K', '*', '#', '<3']
+/**
+ * Glyphs for the badge, each standing in for something the night is about —
+ * glitter, the crush, the smiley, the music, the Y2K flower, chrome sparkle,
+ * the hash, the "2" of Back 2 School, the `^^` emoticon, and a little
+ * chatroom punctuation.
+ *
+ * `︎` is the text-presentation selector: without it, the heart and smiley
+ * flip to colour emoji on some platforms and break the monochrome overlay.
+ */
+const SYMBOLS = ['★', '♥︎', '☺︎', '♪', '✿', '✦', '#', '2', '^^', '&', '/', '$']
+
+/** Scrolling flickers the badge; at rest it still ticks over on its own. */
 const SYMBOL_THROTTLE_MS = 80
+const SYMBOL_CYCLE_MS = 450
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
 
@@ -120,13 +132,29 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options)
       raf = requestAnimationFrame(tick)
     }
 
+    let symbolIndex = 0
+    const nextSymbol = () => {
+      if (!symbol) return
+      // Never land on the current glyph again — a repeat just reads as a
+      // dropped frame rather than a change.
+      let pick = symbolIndex
+      while (pick === symbolIndex) {
+        pick = Math.floor(Math.random() * SYMBOLS.length)
+      }
+      symbolIndex = pick
+      symbol.textContent = SYMBOLS[pick]
+    }
+
     let lastSymbolAt = 0
     const onScroll = () => {
       const now = performance.now()
       if (now - lastSymbolAt < SYMBOL_THROTTLE_MS) return
       lastSymbolAt = now
-      if (symbol) symbol.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]
+      nextSymbol()
     }
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const cycle = reducedMotion ? 0 : window.setInterval(nextSymbol, SYMBOL_CYCLE_MS)
 
     let remeasure = 0
     const onResize = () => {
@@ -145,6 +173,7 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options)
     return () => {
       cancelAnimationFrame(raf)
       cancelAnimationFrame(remeasure)
+      clearInterval(cycle)
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
       window.removeEventListener('load', onResize)
