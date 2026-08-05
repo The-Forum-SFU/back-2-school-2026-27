@@ -10,8 +10,26 @@ body {
   will-change: transform;
 }
 
+/* Keyframes carry the centring translate too, or the spin would drop it. */
+@keyframes cursor-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.cursor-badge {
+  animation: cursor-spin 5s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bp-card {
     will-change: auto;
+  }
+
+  .cursor-badge {
+    animation: none;
   }
 }

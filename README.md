@@ -14,9 +14,9 @@ npm run preview
 
 Two phases, both driven off `window.scrollY`:
 
-1. **Hero** (first 100vh) — `hero-base` fills the viewport; `hero-reveal` is
-   punched through it by a soft 260px circular mask trailing the cursor. A black
-   panel slides up over the top.
+1. **Hero** (first 100vh) — `hero-base` fills the viewport and `hero-reveal` is
+   clipped to everything right of a divider the user drags to compare the two.
+   A black panel slides up over the top.
 2. **Gallery** — the panel carries a scattered grid of photos that scale in and
    out as they cross the viewport, then a white overlay fades in behind a "view"
    CTA.
@@ -26,8 +26,9 @@ Two phases, both driven off `window.scrollY`:
 | [src/App.tsx](src/App.tsx) | Composition and the `scroll-spacer` root |
 | [src/lib/useScrollEngine.ts](src/lib/useScrollEngine.ts) | The RAF loop — card scales, phase-2 translate, outro |
 | [src/lib/layout.ts](src/lib/layout.ts) | `buildLayout` — the scattered grid |
-| [src/components/HeroCanvas.tsx](src/components/HeroCanvas.tsx) | Hero image layers + pointer smoothing |
-| [src/components/RevealLayer.tsx](src/components/RevealLayer.tsx) | The spotlight mask |
+| [src/components/HeroCanvas.tsx](src/components/HeroCanvas.tsx) | Hero image layers + drag handling |
+| [src/components/RevealLayer.tsx](src/components/RevealLayer.tsx) | `hero-reveal`, clipped at the divider |
+| [src/components/SplitDivider.tsx](src/components/SplitDivider.tsx) | The draggable rule, handle and keyboard control |
 | [src/components/Overlay.tsx](src/components/Overlay.tsx) | Logo, nav, caption, event info, CTA, footer |
 | [src/components/BlackPanel.tsx](src/components/BlackPanel.tsx) | The gallery sheet |
 
@@ -88,5 +89,10 @@ adding or removing entries reflows on its own.
 
 Mobile < 640px (2 columns) · tablet 640–1024px (3) · desktop >= 1024px (4).
 
-The spotlight and the custom cursor are desktop-and-mouse only. On touch, or
-under `prefers-reduced-motion`, `hero-base` stands alone.
+The hero divider works everywhere — drag it, or focus the handle and use the
+arrow keys (hold shift for bigger steps, Home/End to slam it to either edge).
+Drag is bound to the whole hero rather than just the handle, with
+`touch-action: pan-y` so vertical swipes still scroll the page.
+
+The custom cursor is desktop-and-mouse only, and its badge stops spinning under
+`prefers-reduced-motion`.

@@ -21,10 +21,7 @@ export default function App() {
   const panelRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // No pointer to follow on touch, and the spotlight is the one purely
-  // decorative motion on the page.
   const hasCursor = vp.isDesktop && !vp.isTouch
-  const spotlight = hasCursor && !vp.reducedMotion
 
   useScrollEngine({ spacerRef, panelRef, wrapRef, cols })
 
@@ -40,7 +37,7 @@ export default function App() {
         cursor: hasCursor ? 'none' : 'auto',
       }}
     >
-      <HeroCanvas spotlight={spotlight} isMobile={vp.isMobile} />
+      <HeroCanvas isMobile={vp.isMobile} />
 
       <BlackPanel panelRef={panelRef} wrapRef={wrapRef} cols={cols} />
 

@@ -1,5 +1,5 @@
-/** Hero spotlight pair. `hero-base` is always visible; `hero-reveal` shows
- *  only inside the circular mask trailing the cursor. */
+/** Hero comparison pair. `hero-base` sits left of the divider, `hero-reveal`
+ *  right of it. Both are the same pose, so the seam reads as one image. */
 export const HERO_BASE = '/hero/hero-base.jpg'
 export const HERO_REVEAL = '/hero/hero-reveal.jpg'
 

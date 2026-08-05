@@ -51,6 +51,7 @@ export default function CustomCursor() {
         src={CURSOR_BADGE}
         alt=""
         aria-hidden="true"
+        className="cursor-badge"
         style={{
           position: 'absolute',
           left: '50%',

@@ -8,7 +8,7 @@ export type Viewport = {
   isMobile: boolean
   isTablet: boolean
   isDesktop: boolean
-  /** Coarse pointer / no hover — no cursor to track, so no spotlight. */
+  /** Coarse pointer / no hover — no pointer to replace, so no custom cursor. */
   isTouch: boolean
   reducedMotion: boolean
 }
