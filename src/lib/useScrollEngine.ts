@@ -27,6 +27,12 @@ type Options = {
   wrapRef: RefObject<HTMLDivElement | null>
   /** Re-measure when the grid relayouts. */
   cols: number
+  /**
+   * Whether this route renders a section after the scroll experience. Controls the
+   * handoff: without one there is nothing to cover, so the fixed stack and the custom
+   * cursor stay put all the way to the bottom.
+   */
+  hasBottom: boolean
 }
 
 type Card = { el: HTMLElement; top: number; height: number }
@@ -45,7 +51,7 @@ type Card = { el: HTMLElement; top: number; height: number }
  * force a layout flush per card per frame, and would also inherit GSAP's scrub
  * smoothing mid-transition.
  */
-export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options) {
+export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom }: Options) {
   useEffect(() => {
     const spacer = spacerRef.current
     const panel = panelRef.current
@@ -55,8 +61,8 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options)
     const canvas = document.getElementById('main-canvas')
     const overlay = document.getElementById('outro-overlay')
     const info = document.getElementById('outro-info')
-    const buy = document.getElementById('outro-buy')
     const footer = document.getElementById('outro-footer')
+    const cursor = document.getElementById('custom-cursor')
     const symbol = document.getElementById('circle-symbol')
 
     let vh = window.innerHeight
@@ -126,8 +132,37 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options)
       const outro = clamp01((y - vh - maxScroll) / Math.max(1, vh - 100))
       if (overlay) overlay.style.opacity = `${outro}`
       if (info) info.style.transform = `translate3d(0, ${-outroOffset * outro}px, 0)`
-      if (buy) buy.style.transform = `scale(${outro})`
       if (footer) footer.style.opacity = `${outro}`
+
+      // The bottom section (when a route has one) begins entering here and has fully
+      // covered the viewport one viewport later. It sits above every fixed layer, so
+      // it rides up over the pinned outro on its own — nothing needs animating.
+      //
+      // Both thresholds are gated on the section actually existing. On a route
+      // without one, `coverStart` lands exactly on max scroll, so an ungated check
+      // would blink the custom cursor out at the very bottom of the page.
+      const coverStart = maxScroll + 2 * vh
+      const coverEnd = coverStart + vh
+      const covering = hasBottom && y >= coverStart
+
+      // Only hide the fixed stack once it is completely behind the section. Hiding at
+      // `coverStart` — the moment the section began entering — is what made the
+      // handoff feel like the page breaking: the whole outro vanished in one frame
+      // while it was still in full view. On a route with no bottom section, scroll
+      // never reaches coverEnd, so this simply never fires.
+      //
+      // `visibility` rather than `opacity`: it doesn't affect layout (so the spacer
+      // keeps its scroll height) and it drops the hidden layers out of the tab order
+      // and the accessibility tree, which keeps keyboard focus from wandering
+      // through invisible overlay text on the way to the form.
+      spacer.style.visibility = hasBottom && y >= coverEnd ? 'hidden' : 'visible'
+
+      // The custom cursor has to go as soon as the section starts covering, not when
+      // the spacer hides. `cursor: none` lives on the spacer and isn't inherited by
+      // the section, so during the overlap the real system cursor is already being
+      // drawn over the section — leaving the ring visible below it would show two
+      // cursors at once.
+      if (cursor) cursor.style.visibility = covering ? 'hidden' : 'visible'
 
       raf = requestAnimationFrame(tick)
     }
@@ -181,5 +216,5 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols }: Options)
       slide.scrollTrigger?.kill()
       slide.kill()
     }
-  }, [spacerRef, panelRef, wrapRef, cols])
+  }, [spacerRef, panelRef, wrapRef, cols, hasBottom])
 }

@@ -12,6 +12,21 @@ export const LOGO_WORDMARK = '/logo/wordmark.png'
 /** TF monogram for the custom cursor. Black on transparent. */
 export const CURSOR_BADGE = '/cursor/tf-badge.png'
 
+/**
+ * Crumpled lined notebook paper, 600×783. Backs the signup sheet at the end of
+ * the scroll.
+ *
+ * Used as a contained sheet rather than a full-bleed background: it's a picture of
+ * one piece of paper — punch holes down the left, red margin rule, torn edges — so
+ * tiling it repeats those features visibly, and stretching it across a desktop-width
+ * section is a ~2.4x upscale that turns the ruled lines to mush. Kept near its native
+ * width it stays crisp and reads as an actual sheet.
+ */
+export const PAPER = '/crumbled_paper.jpg'
+
+/** Lightest tone sampled from PAPER — used where a real colour is unavoidable. */
+export const PAPER_WHITE = '#f7f8f9'
+
 /** Gallery photos, in the order they appear down the black panel. */
 export const GALLERY = [
   '/gallery/gallery-01.jpg',

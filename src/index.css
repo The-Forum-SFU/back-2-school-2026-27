@@ -10,6 +10,61 @@ body {
   will-change: transform;
 }
 
+/* ---------------------------------------------------------------------------
+   Signup surface — text and controls sitting on crumpled ruled paper.
+
+   The texture is genuinely hostile to a form: creases put shadows under small
+   text, and the printed blue rules run straight through every field. Three
+   layers of defence, cheapest first.
+   --------------------------------------------------------------------------- */
+
+/* 1. A tight white halo behind text. Lifts it off the creases without needing a
+      panel, and inherits, so every heading and label gets it for free. */
+.paper-surface {
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.9),
+    0 0 6px rgba(255, 255, 255, 0.65);
+}
+
+/* Controls sit on their own ground, so the halo would only smear them — and on
+   the black submit button a white shadow under white text is pure mud. */
+.paper-surface input,
+.paper-surface select,
+.paper-surface textarea,
+.paper-surface button,
+.paper-surface a {
+  text-shadow: none;
+}
+
+/* 2. A faint ground under every text field, so what someone types is never
+      sitting directly on a crease or a printed rule. Still translucent — the
+      paper reads through it. */
+.paper-surface input:not([type='checkbox']),
+.paper-surface select {
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.paper-surface input:not([type='checkbox']):focus,
+.paper-surface select:focus {
+  background-color: rgba(255, 255, 255, 0.78);
+}
+
+.signup ::placeholder {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* Chrome paints autofilled fields with its own opaque background and gives us no
+   way to make it transparent — so it always covers the paper behind the input.
+   #f7f8f9 is the lightest tone sampled from crumbled_paper.jpg, which makes the
+   block sit close enough to the sheet to read as part of it. Pure white here
+   would show as an obvious rectangle on the texture. */
+.signup input:-webkit-autofill,
+.signup input:-webkit-autofill:focus {
+  box-shadow: inset 0 0 0 1000px #f7f8f9;
+  -webkit-text-fill-color: #000;
+  caret-color: #000;
+}
+
 /* Keyframes carry the centring translate too, or the spin would drop it. */
 @keyframes cursor-spin {
   from {

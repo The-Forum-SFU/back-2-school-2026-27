@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
+import { EVENT } from '../config/event'
 import type { Viewport } from '../lib/viewport'
 
 const EASE: [number, number, number, number] = [0.25, 0.1, 0.25, 1]
@@ -118,7 +119,46 @@ export function Caption({ vp }: { vp: Viewport }) {
   )
 }
 
-export function HeaderNav({ vp }: { vp: Viewport }) {
+/** Jumps to the signup section below the scroll experience. */
+function scrollToSignup() {
+  const el = document.getElementById('signup')
+  if (!el) return
+  // Instant, not smooth. The RAF loop renders every intermediate frame, so smooth-
+  // scrolling five viewports would strobe the panel slide, the card scale-ins and the
+  // outro fade past in about a second.
+  window.scrollTo({ top: el.offsetTop })
+}
+
+/**
+ * [ TICKETS ], top right.
+ *
+ * `overlayBase` disables pointer events for every layer, so an interactive element
+ * re-enables them on itself only.
+ *
+ * Three states, in priority order: an external link once General On-Sale opens, a
+ * jump to the signup section on a route that has one, and otherwise plain inert text
+ * — a route with no bottom section has nowhere to send anyone, and a button that
+ * silently does nothing is worse than a label.
+ */
+export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean }) {
+  const external = EVENT.tickets.enabled && EVENT.tickets.url
+
+  const textStyle = {
+    fontFamily: FONT,
+    fontWeight: 500,
+    fontSize: vp.isDesktop ? 15 : 13,
+    color: '#fff',
+    whiteSpace: 'nowrap' as const,
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    margin: 0,
+    cursor: 'pointer',
+    pointerEvents: 'auto' as const,
+    textDecoration: 'none',
+    letterSpacing: 'inherit',
+  }
+
   return (
     <motion.div
       {...riseIn(0.15)}
@@ -133,17 +173,59 @@ export function HeaderNav({ vp }: { vp: Viewport }) {
         alignItems: 'center',
       }}
     >
-      <span
+      {external ? (
+        <a href={EVENT.tickets.url} target="_blank" rel="noopener noreferrer" style={textStyle}>
+          [ TICKETS ]
+        </a>
+      ) : hasBottom ? (
+        <button type="button" onClick={scrollToSignup} style={textStyle}>
+          [ TICKETS ]
+        </button>
+      ) : (
+        <span style={{ ...textStyle, cursor: 'default', pointerEvents: 'none' }}>
+          [ TICKETS ]
+        </span>
+      )}
+    </motion.div>
+  )
+}
+
+/**
+ * Hero affordance that skips the scroll experience and lands on the form.
+ *
+ * Sits below the Caption on the same left rail, and inherits the exclusion blending
+ * so it reads correctly over both the light hero and the black panel.
+ */
+export function ScrollCue({ vp }: { vp: Viewport }) {
+  return (
+    <motion.div
+      {...riseIn(0.45)}
+      style={{
+        ...overlayBase,
+        left: vp.isMobile ? 16 : 32,
+        top: vp.isDesktop ? 300 : vp.isTablet ? 236 : 174,
+      }}
+    >
+      <button
+        type="button"
+        onClick={scrollToSignup}
         style={{
           fontFamily: FONT,
           fontWeight: 500,
           fontSize: vp.isDesktop ? 15 : 13,
+          letterSpacing: '-0.02em',
+          textTransform: 'uppercase',
           color: '#fff',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+          pointerEvents: 'auto',
           whiteSpace: 'nowrap',
         }}
       >
-        [ TICKETS ]
-      </span>
+        [ GET ON THE LIST ↓ ]
+      </button>
     </motion.div>
   )
 }
@@ -258,43 +340,6 @@ export function EventInfo({ vp }: { vp: Viewport }) {
         SEPT 26
       </div>
     </motion.div>
-  )
-}
-
-export function ViewButton({ vp }: { vp: Viewport }) {
-  const desktop = vp.isDesktop
-
-  return (
-    <div
-      id="outro-buy"
-      style={{
-        ...overlayBase,
-        ...(desktop
-          ? { right: 32, bottom: 32, width: 330, height: 174 }
-          : { left: 16, right: 16, bottom: 60, height: 100 }),
-        transformOrigin: 'right bottom',
-        transform: 'scale(0)',
-        background: '#fff',
-        borderRadius: 1335,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: FONT,
-          fontWeight: 500,
-          fontSize: desktop ? 110 : 72,
-          lineHeight: '100%',
-          letterSpacing: '-0.04em',
-          color: '#fff',
-          mixBlendMode: 'exclusion',
-        }}
-      >
-        view
-      </span>
-    </div>
   )
 }
 

@@ -33,6 +33,7 @@ export default function CustomCursor() {
   return (
     <div
       ref={ref}
+      id="custom-cursor"
       className="fixed pointer-events-none"
       style={{
         left: -100,

@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
+    "target": "ES2022",
+    /* No "DOM" on purpose: this is a server project, and @types/node supplies
+       fetch/Response/Headers/URL/AbortSignal as globals. Adding DOM here would let
+       `document.` typecheck and then blow up at runtime on Vercel. */
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* "bundler", not "nodenext": Vercel compiles /api with esbuild, which resolves
+       extensionless relative imports fine. nodenext + "type": "module" would force a
+       .js extension on every internal import for no benefit. */
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["api"]
+}
