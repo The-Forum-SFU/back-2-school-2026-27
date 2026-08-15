@@ -35,8 +35,33 @@ export function hashDob(isoDate: string): string {
 
 /**
  * Salted so the stored value can't be reversed by hashing the ~4 billion IPv4
- * addresses. Rotating IP_HASH_SALT resets everyone's rate-limit window.
+ * addresses. Rotating the salt resets everyone's rate-limit window.
  */
 export function hashIp(ip: string, salt: string): string {
   return sha256(`${salt}:${ip}`)
+}
+
+/**
+ * The salt to hash client IPs with. Never returns nothing.
+ *
+ * This used to be `optionalEnv('IP_HASH_SALT')`, and when that came back undefined the
+ * handler stored no ip_hash — which meant the per-IP rate limit inside claim_signup
+ * had nothing to match on and silently did nothing. An anti-abuse layer that looks
+ * active and isn't is worse than not having one, and "someone forgot a dashboard
+ * variable" is exactly how it happens.
+ *
+ * The fallback derives a salt from the service-role key: already required for the app
+ * to function at all, already secret, and only ever used here as a one-way input. It
+ * is genuinely second best — rotating that key silently resets every rate-limit window
+ * — so set IP_HASH_SALT and keep it stable. But the limiter stays on either way.
+ *
+ * Both branches fail closed rather than open: there is no path through this that
+ * returns an empty salt.
+ */
+export function resolveIpSalt(
+  configured: string | undefined,
+  serviceRoleKey: string,
+): { salt: string; derived: boolean } {
+  if (configured) return { salt: configured, derived: false }
+  return { salt: sha256(`ip-hash-fallback:${serviceRoleKey}`), derived: true }
 }

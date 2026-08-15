@@ -13,19 +13,14 @@ export const LOGO_WORDMARK = '/logo/wordmark.png'
 export const CURSOR_BADGE = '/cursor/tf-badge.png'
 
 /**
- * Crumpled lined notebook paper, 600×783. Backs the signup sheet at the end of
- * the scroll.
+ * Base tone of the signup sheet.
  *
- * Used as a contained sheet rather than a full-bleed background: it's a picture of
- * one piece of paper — punch holes down the left, red margin rule, torn edges — so
- * tiling it repeats those features visibly, and stretching it across a desktop-width
- * section is a ~2.4x upscale that turns the ruled lines to mush. Kept near its native
- * width it stays crisp and reads as an actual sheet.
+ * There is no paper IMAGE any more. The ruled sheet at the end of the scroll is
+ * drawn in CSS — see `.paper-surface` in src/index.css, which owns the colour, the
+ * blue ruling and the red margin rule. This constant exists only for the places
+ * where a JS value is unavoidable; keep it equal to `--paper` there.
  */
-export const PAPER = '/crumbled_paper.jpg'
-
-/** Lightest tone sampled from PAPER — used where a real colour is unavoidable. */
-export const PAPER_WHITE = '#f7f8f9'
+export const PAPER_WHITE = '#fcfcf7'
 
 /** Gallery photos, in the order they appear down the black panel. */
 export const GALLERY = [

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FONT } from '../assets'
 import { EVENT, type ListConfig } from '../config/event'
 import { trackLead } from '../lib/metaPixel'
@@ -11,12 +12,19 @@ import {
   type SignupValues,
 } from '../lib/validate'
 import type { Viewport } from '../lib/viewport'
-import { Checkbox, ERROR, Field, INK, MUTED } from './form/Field'
+import { ROUTES } from '../routes'
+import { Checkbox, ERROR, Field, INK, MUTED, RULE } from './form/Field'
 import { DobField } from './form/DobField'
+import type { ConfirmedState } from '../pages/Confirmed'
 
 /**
  * The signup form. Parameterised by ListConfig so the deferred lists reuse it
  * unchanged — everything list-specific (labels, copy, ticket type) comes from config.
+ *
+ * Field order is fixed by the build plan: first name, last name, email, phone,
+ * birthdate, then the opt-in. The opt-in is the ONLY checkbox. What used to be an age
+ * checkbox is now the birthdate, and what used to be a privacy checkbox is the passive
+ * notice above the submit button — see src/lib/signupApi.ts for how both are recorded.
  *
  * Not a prop: any kind of `extraFields?: ReactNode`. Arbitrary JSX can't be
  * serialised into the request, so a future table-service "party size" passed that way
@@ -33,6 +41,7 @@ type Props = {
 type Phase = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'done'; response: SignupResponse }
 
 export default function SignupForm({ cfg, vp, onResult }: Props) {
+  const navigate = useNavigate()
   const [values, setValues] = useState<SignupValues>(EMPTY_VALUES)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
@@ -52,7 +61,17 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
   const eventIdRef = useRef<string>(`lead_${crypto.randomUUID()}`)
 
   const consentText = cfg.copy.consentLabel
-  const privacyText = `${cfg.copy.privacyLabel} ${cfg.copy.privacyLinkText}`
+  /**
+   * Everything the person was told about their data, as one string. The venue
+   * disclosure is joined in rather than dropped: it is shown at the same moment and
+   * belongs in the same verbatim record.
+   */
+  const privacyText = [
+    `${cfg.copy.privacyNotice} ${cfg.copy.privacyLinkText}.`,
+    cfg.copy.venueShareNote,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const validateOpts = useMemo(
     () => ({ minAge: cfg.minAge, doorDate: EVENT.doorDate }),
@@ -81,16 +100,33 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
   }
 
   function focusFirstError(fieldErrors: FieldErrors) {
-    const order: FieldName[] = [
-      'firstName', 'lastName', 'email', 'phone',
-      'dobYear', 'ageConfirmed', 'privacyAccepted',
-    ]
+    const order: FieldName[] = ['firstName', 'lastName', 'email', 'phone', 'dobYear']
     const first = order.find((key) => fieldErrors[key])
     if (!first) return
     const el = formRef.current?.querySelector<HTMLElement>(
       first === 'dobYear' ? '[autocomplete="bday-month"]' : `#${first}`,
     )
     el?.focus()
+  }
+
+  /**
+   * Hands off to the confirmation page.
+   *
+   * The name and email travel in router state, never in the URL — a query string would
+   * put them in browser history, in any analytics that records paths, and in the
+   * Referer of every outbound click from that page.
+   *
+   * Not `replace`: the build plan tells people to fill the form again if they typed
+   * their name wrong, so the back button has to land back on the form.
+   */
+  function goToConfirmation(isNew: boolean) {
+    const state: ConfirmedState = {
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
+      email: values.email.trim(),
+      isNew,
+    }
+    navigate(ROUTES.CONFIRMED, { state })
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -120,10 +156,15 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
         // so any server-side normalisation can't desync the pair.
         trackLead(response.eventId)
         eventIdRef.current = `lead_${crypto.randomUUID()}`
-        setPhase({ kind: 'done', response })
+        goToConfirmation(true)
         return
 
+      // Styled as success, never as an error — that person IS on the list, and the
+      // confirmation page is what they need to see either way.
       case 'already_registered':
+        goToConfirmation(false)
+        return
+
       case 'full':
       case 'closed':
       case 'not_open':
@@ -138,12 +179,20 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
         focusFirstError({ dobYear: 'x' })
         return
 
-      case 'invalid':
-        // Already translated to client field names by submitSignup.
+      case 'invalid': {
+        // Already translated to client field names by submitSignup, which drops any
+        // the form can't render. If that leaves nothing to mark, say so rather than
+        // silently refusing to submit with no visible reason.
         setPhase({ kind: 'idle' })
-        setErrors(response.fieldErrors)
-        focusFirstError(response.fieldErrors)
+        const fieldErrors = response.fieldErrors
+        if (!Object.values(fieldErrors).some(Boolean)) {
+          setBanner('Something went wrong. Please check your details and try again.')
+          return
+        }
+        setErrors(fieldErrors)
+        focusFirstError(fieldErrors)
         return
+      }
 
       case 'rate_limited':
         setPhase({ kind: 'idle' })
@@ -160,28 +209,10 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
     }
   }
 
-  // Terminal success states replace the form entirely. `already_registered` is
-  // styled as success, never as an error — that person IS on the list.
-  if (phase.kind === 'done') {
-    const r = phase.response
-    if (r.status === 'created' || r.status === 'already_registered') {
-      const isNew = r.status === 'created'
-      return (
-        <div role="status" style={{ maxWidth: 520 }}>
-          <h3 style={{ ...headingStyle(vp), marginBottom: 12 }}>
-            {isNew ? cfg.copy.successTitle : cfg.copy.alreadyTitle}
-          </h3>
-          <p style={bodyStyle}>{isNew ? cfg.copy.successBody : cfg.copy.alreadyBody}</p>
-          <p style={{ ...bodyStyle, color: MUTED, marginTop: 16 }}>
-            {cfg.capacity ? `Spot ${r.slot} of ${cfg.capacity}` : `Confirmation #${r.slot}`}
-          </p>
-        </div>
-      )
-    }
-    // full / closed / not_open are handled by the parent via onResult, which swaps
-    // in RsvpClosed. Rendering nothing here avoids a frame of stale form.
-    return null
-  }
+  // Success navigates away, so the only `done` states that reach here are
+  // full / closed / not_open. Those are handled by the parent via onResult, which
+  // swaps in RsvpClosed; rendering nothing avoids a frame of stale form.
+  if (phase.kind === 'done') return null
 
   const submitting = phase.kind === 'submitting'
 
@@ -196,6 +227,15 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
       // that nests it inside a shared shell.
       style={{ maxWidth: 520, userSelect: 'text' }}
     >
+      {cfg.copy.formHeading && (
+        <h3 style={{ ...headingStyle(vp), marginBottom: cfg.copy.formSubheading ? 8 : 24 }}>
+          {cfg.copy.formHeading}
+        </h3>
+      )}
+      {cfg.copy.formSubheading && (
+        <p style={{ ...bodyStyle, marginBottom: 28 }}>{cfg.copy.formSubheading}</p>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: vp.isMobile ? '1fr' : '1fr 1fr', gap: '0 16px' }}>
         <Field
           id="firstName"
@@ -265,37 +305,8 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
       </div>
 
       <div style={{ marginTop: 28, marginBottom: 24 }}>
-        <Checkbox
-          id="ageConfirmed"
-          checked={values.ageConfirmed}
-          onChange={(v) => set('ageConfirmed', v)}
-          error={errors.ageConfirmed}
-        >
-          {cfg.copy.ageLabel}
-        </Checkbox>
-
-        <Checkbox
-          id="privacyAccepted"
-          checked={values.privacyAccepted}
-          onChange={(v) => set('privacyAccepted', v)}
-          error={errors.privacyAccepted}
-        >
-          {cfg.copy.privacyLabel}{' '}
-          {/* New tab, not a router link: an in-app navigation would unmount this form
-              and silently destroy everything the user has typed. */}
-          <a
-            href={cfg.copy.privacyHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: INK, textDecoration: 'underline' }}
-          >
-            {cfg.copy.privacyLinkText}
-          </a>
-          .
-        </Checkbox>
-
-        {/* Optional by design — under CASL consent must be freely given and cannot be
-            a condition of signing up. */}
+        {/* The only checkbox on the form, and optional by design — under CASL consent
+            must be freely given and cannot be a condition of signing up. */}
         <Checkbox
           id="consentOptIn"
           checked={values.consentOptIn}
@@ -303,13 +314,40 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
         >
           {cfg.copy.consentLabel}
         </Checkbox>
+
+        {/* Sits under the opt-in but is NOT conditional on it: sharing the name with
+            the venue is how check-in works, so everyone who signs up is told. */}
+        {cfg.copy.venueShareNote && (
+          <p style={{ ...fineStyle, marginTop: 12, paddingLeft: 26 }}>
+            {cfg.copy.venueShareNote}
+          </p>
+        )}
       </div>
+
+      {cfg.copy.termsLines && cfg.copy.termsLines.length > 0 && (
+        <TermsPanel title={cfg.copy.termsTitle} lines={cfg.copy.termsLines} />
+      )}
 
       {banner && (
         <p role="alert" style={{ ...bodyStyle, color: ERROR, marginBottom: 16 }}>
           {banner}
         </p>
       )}
+
+      <p style={{ ...fineStyle, marginBottom: 16 }}>
+        {cfg.copy.privacyNotice}{' '}
+        {/* New tab, not a router link: an in-app navigation would unmount this form
+            and silently destroy everything the user has typed. */}
+        <a
+          href={cfg.copy.privacyHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: INK, textDecoration: 'underline' }}
+        >
+          {cfg.copy.privacyLinkText}
+        </a>
+        .
+      </p>
 
       <button
         type="submit"
@@ -336,6 +374,38 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
   )
 }
 
+/** The tinted "Before you submit" panel. Tinted so it reads as terms, not as body copy. */
+function TermsPanel({ title, lines }: { title?: string; lines: readonly string[] }) {
+  return (
+    <Panel style={{ marginBottom: 24 }}>
+      {title && <p style={panelTitleStyle}>{title}</p>}
+      <ul style={panelListStyle}>
+        {lines.map((line) => (
+          <li key={line} style={panelItemStyle}>
+            {line}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  )
+}
+
+function Panel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div
+      style={{
+        background: 'rgba(0,0,0,0.05)',
+        border: `1px solid ${RULE}`,
+        borderRadius: 4,
+        padding: '14px 16px',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function headingStyle(vp: Viewport) {
   return {
     fontFamily: FONT,
@@ -355,4 +425,33 @@ const bodyStyle = {
   lineHeight: '150%',
   letterSpacing: '-0.02em',
   color: INK,
+}
+
+/** Disclosures and notices. Quieter than body copy, still legible on the ruling. */
+const fineStyle = {
+  ...bodyStyle,
+  fontSize: 12,
+  color: MUTED,
+}
+
+const panelTitleStyle = {
+  ...bodyStyle,
+  fontSize: 12,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '-0.02em',
+  marginBottom: 8,
+}
+
+const panelListStyle = {
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: 6,
+}
+
+const panelItemStyle = {
+  ...bodyStyle,
+  fontSize: 12,
 }

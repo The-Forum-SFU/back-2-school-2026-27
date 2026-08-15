@@ -10,10 +10,17 @@ import type { FieldErrors, SignupValues } from './validate'
  * callers only ever handle the discriminated union.
  */
 
+/**
+ * Mirrors SignupResult in api/_lib/types.ts.
+ *
+ * Carries no slot number, no remaining count and no capacity: the server stopped
+ * sending them, because an unauthenticated response body is public and the build plan
+ * forbids publishing guestlist inventory anywhere.
+ */
 export type SignupResponse =
-  | { status: 'created'; id: string; slot: number; remaining: number | null; eventId: string }
-  | { status: 'already_registered'; id: string; slot: number }
-  | { status: 'full'; capacity: number }
+  | { status: 'created'; eventId: string }
+  | { status: 'already_registered' }
+  | { status: 'full' }
   | { status: 'not_open'; opensAt: string; closesAt: string }
   | { status: 'closed'; opensAt: string; closesAt: string }
   | { status: 'underage'; minAge: number }
@@ -28,21 +35,28 @@ export type SignupResponse =
  * selects and keys its error under `dobYear`. Without this translation a server-side
  * DOB rejection would set an error under a key no field reads, and the user would
  * see the form refuse to submit with nothing marked.
+ *
+ * Same reasoning drives the allow-list: the server can still reject `ageConfirmed`
+ * and `privacyAccepted`, which are no longer fields on the form. Those are dropped
+ * here rather than passed through as errors nothing can render, which lets the form
+ * detect "invalid, but nothing to mark" and say so out loud.
  */
 type ServerFieldErrors = Record<string, string | undefined>
 
+const RENDERED_FIELDS = ['firstName', 'lastName', 'email', 'phone'] as const
+
 function toClientErrors(raw: ServerFieldErrors): FieldErrors {
-  const { dob, ...rest } = raw
-  const mapped: FieldErrors = { ...(rest as FieldErrors) }
-  if (dob) mapped.dobYear = dob
+  const mapped: FieldErrors = {}
+  for (const key of RENDERED_FIELDS) {
+    if (raw[key]) mapped[key] = raw[key]
+  }
+  if (raw.dob) mapped.dobYear = raw.dob
   return mapped
 }
 
 export type ListStatusResponse = {
   ticketType: TicketType
   phase: 'before' | 'open' | 'closed' | 'full'
-  remaining: number | null
-  capacity: number | null
   opensAt: string
   closesAt: string
 }
@@ -50,6 +64,11 @@ export type ListStatusResponse = {
 export type SubmitExtras = {
   eventId: string
   consentText: string
+  /**
+   * The privacy notice and any disclosure shown alongside it, exactly as rendered.
+   * Stored verbatim in submissions.privacy_text — wording changes are not retroactive,
+   * which is the point of sending the string rather than a flag.
+   */
   privacyText: string
   /** Honeypot value — a real user leaves this empty. */
   company: string
@@ -75,8 +94,27 @@ export async function submitSignup(
         email: values.email,
         phone: values.phone,
         dob,
-        ageConfirmed: values.ageConfirmed,
-        privacyAccepted: values.privacyAccepted,
+
+        /*
+         * Two attestations the form no longer asks for as checkboxes, per the build
+         * plan's form spec — the opt-in is the only box on the page.
+         *
+         * ageConfirmed: the birthdate IS the attestation now, and a stronger one than
+         *   a tick. This request is only ever built after `dob` has cleared the 19+
+         *   gate against the door date, so `true` here is a statement about what the
+         *   user actually supplied, not a box we ticked on their behalf.
+         *
+         * privacyAccepted: the notice sits immediately above the submit button and
+         *   reads "By signing up you agree to our Privacy Policy". Pressing submit IS
+         *   the agreement, and `privacyText` records the exact sentence they saw.
+         *
+         * Neither is a gate. Both real gates are unchanged and both are server-side:
+         * claim_signup recomputes age against the list's own door_date, and it is the
+         * only thing that can enforce it.
+         */
+        ageConfirmed: true,
+        privacyAccepted: true,
+
         consentOptIn: values.consentOptIn,
         consentText: values.consentOptIn ? extras.consentText : null,
         privacyText: extras.privacyText,

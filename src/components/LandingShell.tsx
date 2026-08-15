@@ -1,5 +1,4 @@
 import { useRef, type ReactNode } from 'react'
-import { PAPER } from '../assets'
 import BlackPanel from './BlackPanel'
 import CustomCursor from './CustomCursor'
 import HeroCanvas from './HeroCanvas'
@@ -8,17 +7,11 @@ import { columnsFor, useViewport } from '../lib/viewport'
 import { useScrollEngine } from '../lib/useScrollEngine'
 
 /**
- * Strength of the white wash over the paper. The one number to turn when the sheet
- * reads as either too washed out or too busy behind the form.
- */
-const PAPER_WASH = 'rgba(255,255,255,0.42)'
-
-/**
  * The full landing experience — hero split-slider, gallery panel, outro — wrapped so
  * that every route can reuse it with its own ending.
  *
- * `bottom` is whatever that route puts at the end of the scroll: the presale form and
- * ticket comparison on /presale, something else later, nothing at all on /. It is
+ * `bottom` is whatever that route puts at the end of the scroll: the guestlist form
+ * and price comparison there, something else later, nothing at all on /. It is
  * deliberately a prop rather than baked in, because most routes will not have a form
  * and none of them should inherit another route's.
  *
@@ -94,22 +87,21 @@ export default function LandingShell({ bottom }: { bottom?: ReactNode }) {
             position: 'relative',
             zIndex: 60,
             minHeight: '100vh',
-            padding: vp.isMobile ? '64px 16px 96px' : '112px 32px 160px',
 
-            // Solid ground under the texture. Not cosmetic: this section has to fully
-            // cover the pinned outro as it scrolls up, so it must stay opaque even
-            // before the JPEG has loaded.
-            backgroundColor: '#eef0f0',
+            // Horizontal padding clears the red margin rule that `.paper-surface`
+            // draws at --margin-x (16px mobile, 32px desktop), so body text starts
+            // in the gutter to its right the way writing on a real sheet does.
+            padding: vp.isMobile ? '64px 28px 96px' : '112px 64px 160px',
 
-            // Two layers — a white wash sitting on the sheet. The wash does real work:
-            // it takes the edge off the printed blue rules so form text isn't
-            // competing with them, and it masks the softness of scaling a 600px-wide
-            // image across a desktop-width section. Lower the alpha for more paper,
-            // raise it for more legibility.
-            backgroundImage: `linear-gradient(${PAPER_WASH}, ${PAPER_WASH}), url(${PAPER})`,
-            backgroundSize: 'cover, cover',
-            backgroundPosition: 'center, center top',
-            backgroundRepeat: 'no-repeat, no-repeat',
+            // The leading edge of the sheet.
+            //
+            // This section slides up over a white outro and the paper is very nearly
+            // white, so without an edge the two just merge and the whole move reads as
+            // the page going blank. The rule states where the sheet starts; the shadow
+            // above it falls on the outro underneath and is what actually sells one
+            // surface passing over another.
+            borderTop: '1px solid rgba(0,0,0,0.35)',
+            boxShadow: '0 -14px 34px rgba(0,0,0,0.22), 0 -2px 6px rgba(0,0,0,0.10)',
           }}
         >
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>{bottom}</div>

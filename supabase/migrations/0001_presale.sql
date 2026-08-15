@@ -1,5 +1,10 @@
 -- Rewind / Back 2 School 2026 — signup capture.
 --
+-- NOTE: both functions at the bottom of this file are SUPERSEDED by
+-- 0002_reconcile_and_harden.sql, which drops and recreates them so that neither
+-- claim_signup nor list_status returns a countable inventory figure. Run 0002 after
+-- this one; on a database that already has an older shape, 0002 alone is enough.
+--
 -- Apply via the Supabase SQL editor (or `supabase db push`) against the standalone
 -- project for this event. The client never talks to these tables: /api reaches them
 -- with the service-role key, and RLS is on with no policies so anon is denied.
@@ -44,14 +49,14 @@ insert into public.ticket_lists
 values
   -- Cap is 75, not the 50 in the original brief — raised for this event.
   ('presale-guestlist', 'Discounted Guestlist', 75,
-   '2026-08-10T00:00:00-07:00', '2026-08-25T23:59:59-07:00', '2026-09-26', 500, true),
+   '2026-08-10T00:00:00-07:00', '2026-08-25T23:59:59-07:00', '2026-09-20', 500, true),
   ('early-access',      'Early Access List',    50,
-   '2026-08-20T00:00:00-07:00', '2026-08-24T23:59:59-07:00', '2026-09-26',   0, true),
+   '2026-08-20T00:00:00-07:00', '2026-08-24T23:59:59-07:00', '2026-09-20',   0, true),
   ('general-onsale',    'General On-Sale',    null,
-   '2026-08-24T00:00:00-07:00', '2026-09-20T23:59:59-07:00', '2026-09-26',   0, true),
+   '2026-08-24T00:00:00-07:00', '2026-09-20T23:59:59-07:00', '2026-09-20',   0, true),
   -- Window is still TBD, so it ships inactive rather than guessing dates.
   ('table-service',     'Table Service',      null,
-   '2026-08-10T00:00:00-07:00', '2026-09-25T23:59:59-07:00', '2026-09-26',   0, false)
+   '2026-08-10T00:00:00-07:00', '2026-09-25T23:59:59-07:00', '2026-09-20',   0, false)
 on conflict (ticket_type) do nothing;
 
 -- ---------------------------------------------------------------------------

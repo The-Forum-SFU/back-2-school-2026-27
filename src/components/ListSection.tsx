@@ -1,23 +1,27 @@
 import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { FONT } from '../assets'
-import { EVENT, LISTS, resolveListPhase, formatShortDate, type ListPhase, type TicketType } from '../config/event'
+import { LISTS, resolveListPhase, formatShortDate, type ListPhase, type TicketType } from '../config/event'
 import { captureAttribution } from '../lib/attribution'
 import { initMetaPixel } from '../lib/metaPixel'
 import { fetchListStatus, type SignupResponse } from '../lib/signupApi'
 import { riseIn } from '../lib/motion'
 import { useViewport } from '../lib/viewport'
+import PriceComparison from './PriceComparison'
 import RsvpClosed from './RsvpClosed'
 import SignupForm from './SignupForm'
 import { INK, MUTED } from './form/Field'
 
 /**
- * The signup block for one list: heading, scarcity, and either the form or the
+ * The signup block for one list: header, price comparison, and either the form or the
  * closed panel.
  *
  * Rendered by ListBottom at the end of LandingShell's scroll on any route that owns a
  * list. Deliberately has no page chrome of its own, so the shell around it stays in
  * charge of layout.
+ *
+ * Nothing here renders `remaining`. The server's count decides open versus full and
+ * nothing else — no counter, no "spots left", no progress bar, at any point.
  */
 
 /** Re-render on an interval so a page left open across a window boundary flips live. */
@@ -35,7 +39,6 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
   const vp = useViewport()
   const now = useNow(60_000)
 
-  const [remaining, setRemaining] = useState<number | null | undefined>(undefined)
   const [serverPhase, setServerPhase] = useState<ListPhase | null>(null)
 
   useEffect(() => {
@@ -47,10 +50,10 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
     let cancelled = false
     fetchListStatus(ticketType).then((status) => {
       if (cancelled || !status) return
-      // The server wins: device clocks are wrong often enough to matter, and
-      // `remaining` is something only the database can know.
+      // The server wins: device clocks are wrong often enough to matter, and whether
+      // the list is full is something only the database can know. It sends a phase and
+      // no counts, so "full" is all that arrives and all that is needed.
       setServerPhase(status.phase)
-      setRemaining(status.remaining)
     })
     return () => {
       cancelled = true
@@ -58,8 +61,9 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
   }, [ticketType])
 
   // Render the config-derived phase on the first frame so there's no spinner, then
-  // let the server's answer replace it when it lands.
-  const phase: ListPhase = serverPhase ?? resolveListPhase(cfg, now, remaining)
+  // let the server's answer replace it when it lands. The config can only reason about
+  // the window, never about capacity — 'full' arrives from the server or not at all.
+  const phase: ListPhase = serverPhase ?? resolveListPhase(cfg, now)
 
   /**
    * Someone can have the form open when the last slot goes. Their submit comes back
@@ -99,24 +103,16 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
     throw new Error(`ListSection: mode "${cfg.mode}" is not implemented yet`)
   }
 
-  const showScarcity =
-    typeof remaining === 'number' && remaining > 0 && remaining <= cfg.showRemainingBelow
-
   return (
     <motion.div {...riseIn(0)}>
-      <div style={{ marginBottom: 28 }}>
+      <header style={{ maxWidth: 640 }}>
+        {cfg.copy.eyebrow && <p style={eyebrowStyle}>{cfg.copy.eyebrow}</p>}
         <h2 style={headingStyle(vp)}>{cfg.copy.heading}</h2>
-        <p style={{ ...subStyle(vp), marginTop: 10 }}>{cfg.copy.subheading}</p>
-        <p style={{ ...mutedStyle, marginTop: 14 }}>{cfg.blurb}</p>
-        <p style={{ ...mutedStyle, marginTop: 4 }}>
-          {EVENT.venue.name} · {EVENT.venue.ageRestriction} · Doors {EVENT.venue.doorsOpen}
-          {/* doorsClose is null until confirmed, and simply isn't rendered. */}
-          {EVENT.venue.doorsClose ? `–${EVENT.venue.doorsClose}` : ''}
-        </p>
-        {showScarcity && (
-          <p style={{ ...subStyle(vp), marginTop: 14 }}>Only {remaining} spots left.</p>
-        )}
-      </div>
+        <p style={{ ...subStyle(vp), marginTop: 14 }}>{cfg.copy.subheading}</p>
+        <p style={{ ...mutedStyle, marginTop: 12 }}>{cfg.blurb}</p>
+      </header>
+
+      <PriceComparison vp={vp} />
 
       <SignupForm cfg={cfg} vp={vp} onResult={onResult} />
     </motion.div>
@@ -144,6 +140,16 @@ function subStyle(vp: ReturnType<typeof useViewport>) {
     letterSpacing: '-0.02em',
     color: INK,
   }
+}
+
+const eyebrowStyle = {
+  fontFamily: FONT,
+  fontWeight: 500,
+  fontSize: 11,
+  letterSpacing: '0.02em',
+  textTransform: 'uppercase' as const,
+  color: MUTED,
+  marginBottom: 10,
 }
 
 const mutedStyle = {

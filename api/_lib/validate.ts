@@ -17,6 +17,37 @@ import type { FieldErrors, SignupRequest } from './types'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const NAME_MAX = 80
 const EMAIL_MAX = 254
+/**
+ * A phone number is at most 15 digits (E.164), so 40 characters is generous even with
+ * every separator someone might type. The cap exists because `toE164` strips non
+ * digits, and without it a megabyte of punctuation walks straight through validation
+ * before being reduced to nothing.
+ */
+const PHONE_RAW_MAX = 40
+
+/**
+ * Caps on the free text we PERSIST but do not otherwise inspect.
+ *
+ * consent_text and privacy_text are the exact wording the user was shown, sent by the
+ * client so that a copy change is not retroactive. That is the right design for the
+ * legal record and the wrong one for trust: a hand-rolled POST can put anything in
+ * those columns. Truncating bounds the damage to something that can't be used as
+ * storage, and the column stays what it claims to be — a short notice, not an essay.
+ */
+export const RECORDED_TEXT_MAX = 500
+export const EVENT_ID_MAX = 100
+export const ATTRIBUTION_VALUE_MAX = 512
+
+/**
+ * Trims and truncates one untrusted string. Anything that isn't a non-empty string
+ * becomes `undefined`, so callers can `?? null` straight into a column.
+ */
+export function clampText(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed
+}
 
 export type NormalizedSignup = {
   firstName: string
@@ -93,7 +124,7 @@ export function validateSignup(body: Partial<SignupRequest>): ValidationResult {
   else if (email.length > EMAIL_MAX || !EMAIL_RE.test(email))
     fieldErrors.email = 'Enter a valid email address'
 
-  const phone = toE164(phoneRaw)
+  const phone = phoneRaw.length > PHONE_RAW_MAX ? null : toE164(phoneRaw)
   if (!phoneRaw) fieldErrors.phone = 'Required'
   else if (!phone) fieldErrors.phone = 'Enter a valid phone number'
 
@@ -105,9 +136,12 @@ export function validateSignup(body: Partial<SignupRequest>): ValidationResult {
     if (year < 1920 || year > thisYear) fieldErrors.dob = 'Enter a valid date'
   }
 
-  // Both required boxes are re-checked here because a hand-rolled POST can send
-  // anything. What we store is the attestation; the actual age gate is the
-  // server-computed age_at_event in claim_signup.
+  // Both attestations are re-checked here because a hand-rolled POST can send
+  // anything. Neither is a checkbox on the form any more — the birthdate carries the
+  // age attestation and the privacy notice above the submit button is passive — so
+  // the client sends both as `true` with the exact wording in `privacyText`. See the
+  // note in src/lib/signupApi.ts. What we store is the attestation; the actual age
+  // gate is the server-computed age_at_event in claim_signup.
   if (body.ageConfirmed !== true) fieldErrors.ageConfirmed = 'Required'
   if (body.privacyAccepted !== true) fieldErrors.privacyAccepted = 'Required'
   // consentOptIn is deliberately NOT required — under CASL consent must be freely

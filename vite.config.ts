@@ -1,4 +1,6 @@
-import { defineConfig, loadEnv } from 'vite'
+/// <reference types="vitest/config" />
+import { loadEnv } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { devApi } from './vite-api-plugin'
@@ -32,5 +34,22 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [react(), tailwindcss(), devApi()],
+
+    test: {
+      /*
+       * `node` by default, because most of what is worth testing here is the API and
+       * the pure validation twins — neither of which should ever touch a DOM, and a
+       * jsdom global is how a server file quietly grows a `window` reference.
+       *
+       * The component tests opt in per file with a `@vitest-environment jsdom`
+       * docblock.
+       */
+      environment: 'node',
+      include: ['tests/**/*.test.{ts,tsx}'],
+      setupFiles: ['./tests/setup.ts'],
+      restoreMocks: true,
+      // Reads .sql and .ts files off disk for the copy and migration guard tests.
+      testTimeout: 10_000,
+    },
   }
 })

@@ -10,6 +10,12 @@
  * The one thing this does that the server twin does NOT is the age check — the client
  * knows door_date from config, so it can surface "you must be 19" before submit. The
  * server's own gate lives in claim_signup, which owns the real door_date.
+ *
+ * There is deliberately no `ageConfirmed` or `privacyAccepted` here. The form has one
+ * checkbox, the marketing opt-in, and it is optional. The birthdate carries the age
+ * attestation and the privacy notice above the submit button is passive, so neither
+ * has a value to collect or a rule to enforce on this side. See src/lib/signupApi.ts
+ * for what those two become in the request.
  */
 
 export type SignupValues = {
@@ -20,8 +26,6 @@ export type SignupValues = {
   dobYear: string
   dobMonth: string
   dobDay: string
-  ageConfirmed: boolean
-  privacyAccepted: boolean
   consentOptIn: boolean
 }
 
@@ -44,8 +48,6 @@ export const EMPTY_VALUES: SignupValues = {
   dobYear: '',
   dobMonth: '',
   dobDay: '',
-  ageConfirmed: false,
-  privacyAccepted: false,
   consentOptIn: false,
 }
 
@@ -114,8 +116,6 @@ export function validateSignup(
     fieldErrors.dobYear = `You must be ${opts.minAge} or older on the night of the event`
   }
 
-  if (!v.ageConfirmed) fieldErrors.ageConfirmed = 'Required to continue'
-  if (!v.privacyAccepted) fieldErrors.privacyAccepted = 'Required to continue'
   // consentOptIn is intentionally optional — CASL requires consent be freely given.
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }

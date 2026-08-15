@@ -11,42 +11,84 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Signup surface — text and controls sitting on crumpled ruled paper.
+   Signup surface — ruled school paper, drawn in CSS.
 
-   The texture is genuinely hostile to a form: creases put shadows under small
-   text, and the printed blue rules run straight through every field. Three
-   layers of defence, cheapest first.
+   This used to be a photograph of a crumpled sheet. Gradients replace it for
+   three reasons, in order of how much they mattered:
+
+   1. A photo of ONE sheet has fixed features — punch holes, a torn edge, creases
+      in fixed places. Tiling it repeats them visibly; stretching a 600px-wide
+      file across a desktop section is a ~2.4x upscale that turns the ruling to
+      mush. Gradients are resolution-independent, so the rules stay hairline
+      sharp at any width and any DPR.
+   2. Creases put shadows under small text. The old file needed a white wash on
+      top and a white halo behind every glyph to stay legible, and both of those
+      were fighting the texture they were laid over. Flat paper needs neither.
+   3. This section has to fully cover the pinned outro as it scrolls up (see
+      LandingShell). A background-image has a load window where it doesn't, which
+      is why the old one also carried a solid fallback colour. CSS paints on the
+      first frame.
+
+   The ruling is deliberately quiet: form text has to win against it, so the blue
+   sits near the weight of a real pale-blue rule and no darker.
    --------------------------------------------------------------------------- */
 
-/* 1. A tight white halo behind text. Lifts it off the creases without needing a
-      panel, and inherits, so every heading and label gets it for free. */
 .paper-surface {
-  text-shadow:
-    0 1px 2px rgba(255, 255, 255, 0.9),
-    0 0 6px rgba(255, 255, 255, 0.65);
+  /* Height of one ruled line. Everything else is derived from it. */
+  --rule-gap: 28px;
+  /* Distance from the left edge to the red margin rule. The section's own left
+     padding has to clear this or body text lands on top of it. */
+  --margin-x: 16px;
+
+  --paper: #fcfcf7;
+  --paper-shade: #f1f1e8;
+
+  /* The ruling is BEHIND the form, not next to it. These two are as light as they
+     can be while still reading as printed lines — turn them up and every label and
+     every line of terms starts competing with a blue rule running through it. */
+  --rule-ink: rgba(84, 134, 196, 0.26);
+  --margin-ink: rgba(201, 88, 88, 0.3);
+
+  background-color: var(--paper);
+  background-image:
+    /* Red margin rule, full height, 1px. */
+    linear-gradient(
+      90deg,
+      transparent calc(var(--margin-x) - 1px),
+      var(--margin-ink) calc(var(--margin-x) - 1px),
+      var(--margin-ink) var(--margin-x),
+      transparent var(--margin-x)
+    ),
+    /* Blue ruling. The 1px band sits at the BOTTOM of each repeat, so the first
+       line falls one --rule-gap below the top edge rather than on it. */
+      repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent calc(var(--rule-gap) - 1px),
+        var(--rule-ink) calc(var(--rule-gap) - 1px),
+        var(--rule-ink) var(--rule-gap)
+      ),
+    /* Barely-there tone down the sheet, so it reads as paper and not as #fff. */
+      linear-gradient(180deg, var(--paper) 0%, var(--paper-shade) 100%);
 }
 
-/* Controls sit on their own ground, so the halo would only smear them — and on
-   the black submit button a white shadow under white text is pure mud. */
-.paper-surface input,
-.paper-surface select,
-.paper-surface textarea,
-.paper-surface button,
-.paper-surface a {
-  text-shadow: none;
+@media (min-width: 641px) {
+  .paper-surface {
+    --rule-gap: 32px;
+    --margin-x: 32px;
+  }
 }
 
-/* 2. A faint ground under every text field, so what someone types is never
-      sitting directly on a crease or a printed rule. Still translucent — the
-      paper reads through it. */
-.paper-surface input:not([type='checkbox']),
-.paper-surface select {
-  background-color: rgba(255, 255, 255, 0.55);
-}
+/* No ground on a resting field. The old paper image needed one, because creases put
+   shadows under typed text; flat ruling doesn't, and a white block on a cream sheet
+   reads as a floating rectangle rather than as part of it. The ruling running behind
+   the field is the point — the darker underline is what makes it a field.
 
+   Focus is the exception: a warm tint the colour of the sheet, opaque enough to lift
+   what someone is actively typing off the rules without becoming a white box. */
 .paper-surface input:not([type='checkbox']):focus,
 .paper-surface select:focus {
-  background-color: rgba(255, 255, 255, 0.78);
+  background-color: rgba(255, 255, 250, 0.75);
 }
 
 .signup ::placeholder {
@@ -55,12 +97,13 @@ body {
 
 /* Chrome paints autofilled fields with its own opaque background and gives us no
    way to make it transparent — so it always covers the paper behind the input.
-   #f7f8f9 is the lightest tone sampled from crumbled_paper.jpg, which makes the
-   block sit close enough to the sheet to read as part of it. Pure white here
-   would show as an obvious rectangle on the texture. */
+   This is the sheet's own base tone, which makes the block sit close enough to
+   read as part of it. Pure white here would show as an obvious rectangle.
+   Hard-coded because -webkit-autofill ignores custom properties in some Chrome
+   versions; keep it in step with --paper above. */
 .signup input:-webkit-autofill,
 .signup input:-webkit-autofill:focus {
-  box-shadow: inset 0 0 0 1000px #f7f8f9;
+  box-shadow: inset 0 0 0 1000px #fcfcf7;
   -webkit-text-fill-color: #000;
   caret-color: #000;
 }

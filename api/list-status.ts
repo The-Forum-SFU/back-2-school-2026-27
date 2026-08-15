@@ -6,10 +6,19 @@ import { isTicketType, type ListStatus } from './_lib/types'
  * GET /api/list-status?ticketType=presale-guestlist
  *
  * The page renders its own first frame from config, then reconciles against this.
- * The server wins on disagreement: device clocks are wrong often enough to matter,
- * and `remaining` is something only the database knows.
+ * The server wins on disagreement: device clocks are wrong often enough to matter, and
+ * whether the list is full is something only the database can know.
+ *
+ * Returns a phase and nothing countable. This endpoint is unauthenticated, so it used
+ * to be the simplest way to read the exact number of guestlist spots left — see
+ * ListStatus in _lib/types.ts.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD')
+    return res.status(405).json({ status: 'error', message: 'Method not allowed' })
+  }
+
   const raw = req.query.ticketType
   const ticketType = Array.isArray(raw) ? raw[0] : raw
 

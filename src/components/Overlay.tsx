@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
-import { EVENT } from '../config/event'
+import { EVENT, formatDoorStamp } from '../config/event'
 import type { Viewport } from '../lib/viewport'
 
 const EASE: [number, number, number, number] = [0.25, 0.1, 0.25, 1]
@@ -114,7 +114,14 @@ export function Caption({ vp }: { vp: Viewport }) {
         color: '#FFFFFF',
       }}
     >
-      Back 2 School 2026 - Low-rise, glitter, chrome, and everything 2001 forgot to leave behind.
+      {/*
+        Keep this SHORT. The caption sits on the left rail in an exclusion group, and
+        the hero artwork starts around 450px in — any line long enough to reach it
+        inverts against the bear instead of the white behind it, and the tail of the
+        sentence turns colour. The name and kicker take most of the budget, so the
+        flavour line that follows has to be the trimmed version.
+      */}
+      {EVENT.name}. {EVENT.tagline}. Everything 2001 forgot to leave behind.
     </motion.div>
   )
 }
@@ -249,9 +256,9 @@ export function EventInfo({ vp }: { vp: Viewport }) {
         alignItems: 'center',
       }}
     >
-      {/* Shrink-wraps to the width of "BACK 2 SCHOOL" so the badge can sit on
-          the text's left edge while the group as a whole stays centred on the
-          same axis as "SEPT 26" and the view button. */}
+      {/* Shrink-wraps to the width of the kicker so the badge can sit on the text's
+          left edge while the group as a whole stays centred on the same axis as the
+          date stamp and the view button. */}
       <div
         style={{
           display: 'flex',
@@ -263,7 +270,7 @@ export function EventInfo({ vp }: { vp: Viewport }) {
         {/* Hangs left of the text's edge so the badge reads as a deliberate
             offset mark rather than a flush-aligned bullet. The negative margin
             overflows the block without widening it, so the text below stays
-            centred on the same axis as "SEPT 26". */}
+            centred on the same axis as the date stamp. */}
         <div
           style={{
             position: 'relative',
@@ -309,21 +316,42 @@ export function EventInfo({ vp }: { vp: Viewport }) {
             ★
           </span>
         </div>
+        {/*
+          The name, then the kicker directly beneath it, smaller and lighter.
+          The build plan is firm that these two travel together: "Rewind" on its own
+          means nothing to anyone who has not already seen the campaign, so it never
+          appears without the line that says what it is.
+        */}
         <div
           style={{
             fontFamily: FONT,
             fontWeight: 500,
-            fontSize: desktop ? 30 : 20,
+            fontSize: desktop ? 38 : 24,
             lineHeight: '100%',
-            textAlign: 'center',
+            textAlign: 'left',
             letterSpacing: '-0.04em',
             textTransform: 'uppercase',
             color: '#fff',
           }}
         >
-          BACK 2 SCHOOL
-          <br />
-          &ldquo;2026&rdquo;
+          {EVENT.name}
+        </div>
+        <div
+          style={{
+            fontFamily: FONT,
+            fontWeight: 500,
+            fontSize: desktop ? 13 : 11,
+            lineHeight: '130%',
+            textAlign: 'left',
+            letterSpacing: '-0.02em',
+            textTransform: 'uppercase',
+            color: '#fff',
+            opacity: 0.8,
+            marginTop: desktop ? 8 : 5,
+            maxWidth: desktop ? 240 : 180,
+          }}
+        >
+          {EVENT.tagline}
         </div>
       </div>
       <div
@@ -337,7 +365,7 @@ export function EventInfo({ vp }: { vp: Viewport }) {
           color: '#fff',
         }}
       >
-        SEPT 26
+        {formatDoorStamp()}
       </div>
     </motion.div>
   )

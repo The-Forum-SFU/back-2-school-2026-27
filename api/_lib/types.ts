@@ -59,16 +59,39 @@ export type FieldErrors = Partial<
 >
 
 /**
- * Every terminal outcome, as a discriminated union.
+ * What claim_signup returns. Server-internal.
+ *
+ * `id` is here so the handler can patch Brevo/Meta sync state onto the row it just
+ * created. It is NOT part of the client contract — see SignupResponse below.
+ */
+export type ClaimResult =
+  | { status: 'created'; id: string }
+  | { status: 'already_registered'; id: string }
+  | { status: 'full' }
+  | { status: 'not_open'; opensAt: string; closesAt: string }
+  | { status: 'closed'; opensAt: string; closesAt: string }
+  | { status: 'underage'; minAge: number }
+  | { status: 'rate_limited' }
+  | { status: 'unknown_list' }
+
+/**
+ * Every terminal outcome the CLIENT sees, as a discriminated union.
  *
  * `status` is the contract, not the HTTP code. Codes are set for logs and
  * monitoring, but a Vercel platform error returns an HTML body, so the client can
  * never rely on res.ok alone.
+ *
+ * Deliberately carries no `slot`, no `remaining` and no `capacity`. Those used to ride
+ * along here, which meant the size of the guestlist and how much of it was gone were
+ * readable from the response body no matter what the page rendered. The build plan
+ * forbids publishing that, and a field the browser never needs is the easiest kind to
+ * not publish. `id` is dropped for the same reason it is not needed: nothing on the
+ * client does anything with a submission's primary key.
  */
 export type SignupResult =
-  | { status: 'created'; id: string; slot: number; remaining: number | null; eventId: string }
-  | { status: 'already_registered'; id: string; slot: number }
-  | { status: 'full'; capacity: number }
+  | { status: 'created'; eventId: string }
+  | { status: 'already_registered' }
+  | { status: 'full' }
   | { status: 'not_open'; opensAt: string; closesAt: string }
   | { status: 'closed'; opensAt: string; closesAt: string }
   | { status: 'underage'; minAge: number }
@@ -79,11 +102,17 @@ export type SignupResult =
 
 export type ListPhase = 'before' | 'open' | 'closed' | 'full'
 
+/**
+ * What GET /api/list-status returns.
+ *
+ * `remaining` and `capacity` are gone on purpose. This is an unauthenticated endpoint,
+ * so anything in this payload is public — and while they were here, the exact number
+ * of guestlist spots left was one curl away regardless of what the page chose to
+ * render. Whether the form is open is the only thing a browser needs.
+ */
 export type ListStatus = {
   ticketType: TicketType
   phase: ListPhase
-  remaining: number | null
-  capacity: number | null
   opensAt: string
   closesAt: string
 }

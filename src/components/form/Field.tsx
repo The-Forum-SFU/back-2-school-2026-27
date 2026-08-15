@@ -11,13 +11,19 @@ import { FONT } from '../../assets'
  */
 
 export const INK = '#000'
-export const MUTED = 'rgba(0,0,0,0.45)'
+/**
+ * Secondary text. Not lighter than this: at 0.45 the fine print sat at roughly the
+ * same weight as the sheet's printed blue rules, and a rule crossing a line of 12px
+ * grey reads as a strikethrough. Quiet enough to recede, dark enough to win.
+ */
+export const MUTED = 'rgba(0,0,0,0.58)'
 /** Hairline for borders on plain white — the comparison cards. */
 export const RULE = 'rgba(0,0,0,0.25)'
 /**
  * Field underlines specifically. Stronger than RULE because these sit on ruled
  * notebook paper: at 0.25 they land at roughly the weight of the sheet's own printed
- * blue lines, and the fields stop reading as fields.
+ * blue lines, and the fields stop reading as fields. Since a resting field has no
+ * background of its own, this contrast is the only thing separating the two.
  */
 export const FIELD_RULE = 'rgba(0,0,0,0.55)'
 export const ERROR = '#c81e1e'
@@ -41,9 +47,10 @@ export const controlStyle = {
   fontWeight: 500,
   letterSpacing: '-0.02em',
   color: INK,
-  // No `background` here on purpose. The translucent ground that keeps typed text
-  // off the paper's creases is set in index.css under `.paper-surface`, and an
-  // inline value — even `transparent` — would win over it.
+  // No `background` here on purpose. A resting field shows the ruled sheet straight
+  // through; the focus tint that lifts what someone is typing off the rules is set in
+  // index.css under `.paper-surface`, and an inline value — even `transparent` —
+  // would win over it.
   border: 'none',
   borderBottom: `1px solid ${FIELD_RULE}`,
   borderRadius: 0,

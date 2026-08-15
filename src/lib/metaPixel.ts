@@ -2,8 +2,8 @@
  * Meta Pixel loader.
  *
  * Injected from the component that renders the form rather than from index.html.
- * Two reasons: the pixel then loads wherever the form is (landing page AND
- * /presale) without either mount point knowing about it, and — more importantly —
+ * Two reasons: the pixel then loads wherever the form is, on any list route, without
+ * either mount point knowing about it, and — more importantly —
  * Vite's `%VITE_META_PIXEL_ID%` HTML interpolation leaves the LITERAL string in the
  * markup when the var is unset, which is today's state. That would initialise a
  * pixel whose id is the string "%VITE_META_PIXEL_ID%".

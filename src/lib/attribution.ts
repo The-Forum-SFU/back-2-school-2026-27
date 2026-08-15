@@ -2,7 +2,7 @@
  * Captures ad attribution on first page load and holds it for the session.
  *
  * Why sessionStorage: the click ids arrive in the URL, but the user may scroll,
- * navigate to /presale, or reload before submitting — by which point the query
+ * navigate to a list route, or reload before submitting — by which point the query
  * string is long gone. Capturing once on load and reading at submit time is what
  * keeps attribution attached to the conversion.
  */

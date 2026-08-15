@@ -1,16 +1,19 @@
 import { FONT } from '../assets'
-import { LISTS, type TicketType } from '../config/event'
-import { useViewport } from '../lib/viewport'
+import { EVENT, formatDoorDate, type TicketType } from '../config/event'
+import { useViewport, type Viewport } from '../lib/viewport'
 import ListSection from './ListSection'
-import { INK, RULE } from './form/Field'
+import { INK, MUTED, RULE } from './form/Field'
 
 /**
- * What a signup route puts at the end of the landing scroll: the form for its list,
- * then the four paths side by side.
+ * What a signup route puts at the end of the landing scroll: the block for its list,
+ * then the event details.
  *
  * No page chrome of its own — no logo, no min-height, no outer padding. LandingShell
  * owns all of that, so this stays a section that drops into the bottom of the scroll
  * without fighting the shell around it.
+ *
+ * The details below stay on the page in every phase, including once the list is full.
+ * Only the form itself is ever replaced.
  */
 export default function ListBottom({ ticketType }: { ticketType: TicketType }) {
   const vp = useViewport()
@@ -18,95 +21,55 @@ export default function ListBottom({ ticketType }: { ticketType: TicketType }) {
   return (
     <>
       <ListSection ticketType={ticketType} />
-      <ComparisonTable vp={vp} highlight={ticketType} />
+      <EventDetails vp={vp} />
     </>
   )
 }
 
 /**
- * The four paths side by side. Driven off LISTS so it can never drift from what the
- * signup actually enforces — there is no second copy of these numbers.
+ * The facts, in the order someone needs them on the night.
+ *
+ * Built from EVENT rather than written out, so the door date exists in exactly one
+ * place — see the TODO on EVENT.doorDate. The address line renders only once there is
+ * an address; an empty "Celebrities Nightclub," is worse than the venue name alone.
  */
-function ComparisonTable({
-  vp,
-  highlight,
-}: {
-  vp: ReturnType<typeof useViewport>
-  highlight: TicketType
-}) {
-  const rows = Object.values(LISTS)
+function EventDetails({ vp }: { vp: Viewport }) {
+  const { venue } = EVENT
+
+  const lines = [
+    `${EVENT.name}: ${EVENT.tagline}`,
+    formatDoorDate(),
+    `Doors ${venue.doorsOpen}${venue.doorsClose ? ` to ${venue.doorsClose}` : ''}`,
+    venue.address ? `${venue.name}, ${venue.address}` : venue.name,
+    `${venue.ageRestriction}, ${venue.idRequirement}`,
+  ]
 
   return (
-    <section style={{ maxWidth: 1100, marginTop: vp.isDesktop ? 96 : 64 }}>
-      <h3
-        style={{
-          fontFamily: FONT,
-          fontWeight: 500,
-          fontSize: vp.isDesktop ? 22 : 18,
-          letterSpacing: '-0.04em',
-          textTransform: 'uppercase',
-          color: INK,
-          marginBottom: 20,
-        }}
-      >
-        Ways in
+    <section
+      style={{
+        maxWidth: 640,
+        marginTop: vp.isDesktop ? 96 : 64,
+        paddingTop: vp.isDesktop ? 32 : 24,
+        borderTop: `1px solid ${RULE}`,
+      }}
+    >
+      <h3 style={{ ...lineStyle, color: MUTED, marginBottom: 14, textTransform: 'uppercase' }}>
+        Event details
       </h3>
-
-      <div style={{ overflowX: 'auto' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: vp.isMobile ? '1fr' : 'repeat(4, minmax(180px, 1fr))',
-            gap: 16,
-            minWidth: vp.isMobile ? undefined : 760,
-          }}
-        >
-          {rows.map((row) => (
-            <div
-              key={row.ticketType}
-              style={{
-                border: `1px solid ${RULE}`,
-                borderRadius: 4,
-                padding: 16,
-                // Translucent rather than transparent: the paper still reads through, but the
-                // card's own text gets a consistent ground instead of landing on a crease.
-                background: row.ticketType === highlight ? INK : 'rgba(255,255,255,0.6)',
-                color: row.ticketType === highlight ? '#fff' : INK,
-              }}
-            >
-              <p style={{ ...cellHeading, color: 'inherit' }}>{row.label}</p>
-              <p style={{ ...cellBody, color: 'inherit', marginTop: 8 }}>{row.blurb}</p>
-              <p style={{ ...cellMeta, color: 'inherit', marginTop: 12 }}>
-                {row.priceCents > 0 ? `$${(row.priceCents / 100).toFixed(0)} at the door` : 'No discount'}
-              </p>
-              <p style={{ ...cellMeta, color: 'inherit' }}>
-                {row.capacity ? `${row.capacity} spots` : 'No cap'}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {lines.map((line, i) => (
+        <p key={line} style={{ ...lineStyle, marginTop: i === 0 ? 0 : 4 }}>
+          {line}
+        </p>
+      ))}
     </section>
   )
 }
 
-const cellHeading = {
+const lineStyle = {
   fontFamily: FONT,
   fontWeight: 500,
-  fontSize: 14,
+  fontSize: 13,
+  lineHeight: '160%',
   letterSpacing: '-0.02em',
-  textTransform: 'uppercase' as const,
-}
-
-const cellBody = {
-  fontFamily: FONT,
-  fontWeight: 500,
-  fontSize: 12,
-  lineHeight: '150%',
-  letterSpacing: '-0.02em',
-}
-
-const cellMeta = {
-  ...cellBody,
-  opacity: 0.7,
+  color: INK,
 }
