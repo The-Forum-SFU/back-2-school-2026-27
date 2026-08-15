@@ -4,6 +4,7 @@ import CustomCursor from './CustomCursor'
 import HeroCanvas from './HeroCanvas'
 import { Caption, EventInfo, Footer, HeaderNav, LogoMark, ScrollCue } from './Overlay'
 import { columnsFor, useViewport } from '../lib/viewport'
+import { useAutoAdvance } from '../lib/useAutoAdvance'
 import { useScrollEngine } from '../lib/useScrollEngine'
 
 /**
@@ -29,6 +30,14 @@ export default function LandingShell({ bottom }: { bottom?: ReactNode }) {
   const hasBottom = Boolean(bottom)
 
   useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom })
+
+  /**
+   * Takes a visitor who has not touched anything down to the form after a few seconds.
+   * Gated on `hasBottom` for the same reason ScrollCue is: a route with no form below
+   * has nowhere to send anyone. Skipped under reduced motion, where an unrequested
+   * five-viewport jump is exactly what the preference is asking us not to do.
+   */
+  useAutoAdvance({ enabled: hasBottom && !vp.reducedMotion })
 
   return (
     <>

@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
 import { EVENT, formatDoorStamp } from '../config/event'
+import { scrollToSignup } from '../lib/scrollToSignup'
 import type { Viewport } from '../lib/viewport'
 
 const EASE: [number, number, number, number] = [0.25, 0.1, 0.25, 1]
@@ -126,15 +127,6 @@ export function Caption({ vp }: { vp: Viewport }) {
   )
 }
 
-/** Jumps to the signup section below the scroll experience. */
-function scrollToSignup() {
-  const el = document.getElementById('signup')
-  if (!el) return
-  // Instant, not smooth. The RAF loop renders every intermediate frame, so smooth-
-  // scrolling five viewports would strobe the panel slide, the card scale-ins and the
-  // outro fade past in about a second.
-  window.scrollTo({ top: el.offsetTop })
-}
 
 /**
  * [ TICKETS ], top right.
