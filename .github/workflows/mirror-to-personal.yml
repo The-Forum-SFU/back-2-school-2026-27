@@ -1,0 +1,22 @@
+name: Mirror to personal repo
+
+on:
+  push:
+    branches:
+      - main
+      # Add any additional branches you want to mirror (e.g., staging, dev)
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push mirror to personal repo
+        run: |
+          git config --unset-all http.https://github.com/.extraheader
+          git remote add mirror https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/Daniel101Shi/rewind.git
+          git push mirror HEAD:${{ github.ref_name }} --force
