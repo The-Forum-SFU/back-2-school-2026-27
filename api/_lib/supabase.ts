@@ -63,12 +63,16 @@ export async function patchSubmission(
 ): Promise<void> {
   try {
     const url = `${baseUrl()}/rest/v1/submissions?id=eq.${encodeURIComponent(id)}`
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: { ...headers(), Prefer: 'return=minimal' },
       body: JSON.stringify(patch),
       signal: AbortSignal.timeout(3000),
     })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error(`[supabase] sync-state patch failed: HTTP ${res.status} ${text}`)
+    }
   } catch (err) {
     console.error('[supabase] sync-state patch failed (non-fatal):', String(err))
   }

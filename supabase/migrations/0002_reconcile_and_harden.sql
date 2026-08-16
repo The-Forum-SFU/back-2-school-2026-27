@@ -60,6 +60,13 @@ create index if not exists submissions_iphash_created_idx
 alter table public.submissions  enable row level security;
 alter table public.ticket_lists enable row level security;
 
+-- Explicit table and sequence privileges for service_role so /api/signup can UPDATE
+-- sync status (brevo_synced) via PostgREST.
+grant all on table public.submissions to service_role;
+grant all on table public.ticket_lists to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
+
 -- ---------------------------------------------------------------------------
 -- 3. Drop every stale claim_signup overload.
 --
