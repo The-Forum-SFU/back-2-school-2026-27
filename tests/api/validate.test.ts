@@ -6,6 +6,7 @@ import {
   EVENT_ID_MAX,
   isRealDate,
   RECORDED_TEXT_MAX,
+  SFU_EMAIL_ERROR,
   toE164,
   validateSignup,
 } from '../../api/_lib/validate'
@@ -145,6 +146,9 @@ describe('validateSignup', () => {
     ['email with no dot', { email: 'a@b' }, 'email'],
     ['email with a space', { email: 'a b@c.com' }, 'email'],
     ['over-long email', { email: `${'a'.repeat(250)}@b.com` }, 'email'],
+    ['an sfu.ca address', { email: 'jordan@sfu.ca' }, 'email'],
+    ['an sfu.ca subdomain', { email: 'jordan@mail.sfu.ca' }, 'email'],
+    ['an sfu.ca address in caps', { email: 'JORDAN@SFU.CA' }, 'email'],
     ['missing phone', { phone: '' }, 'phone'],
     ['short phone', { phone: '12345' }, 'phone'],
     ['missing dob', { dob: '' }, 'dob'],
@@ -156,6 +160,21 @@ describe('validateSignup', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.fieldErrors[field as keyof typeof result.fieldErrors]).toBeTruthy()
+  })
+
+  it('refuses SFU addresses server-side, where a hand-rolled POST cannot skip it', () => {
+    // The form's own check is a courtesy. This is the one that decides what gets into
+    // the database, and therefore what Brevo tries and fails to deliver to.
+    const result = validateSignup(validBody({ email: 'jordan@sfu.ca' }))
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.fieldErrors.email).toBe(SFU_EMAIL_ERROR)
+  })
+
+  it('refuses only sfu.ca itself, not every domain containing it', () => {
+    for (const email of ['jordan@notsfu.ca', 'jordan@sfu.ca.example.com', 'jordan@sfuca.com']) {
+      expect(validateSignup(validBody({ email })).ok, email).toBe(true)
+    }
   })
 
   it('rejects a phone that is only long enough because of punctuation', () => {

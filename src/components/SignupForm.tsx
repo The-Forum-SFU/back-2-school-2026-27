@@ -272,6 +272,10 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
         type="email"
         inputMode="email"
         autoComplete="email"
+        // Always on screen, not a message that appears after a rejection: an @sfu.ca
+        // address is refused outright by validateSignup, and being told before you
+        // type beats being told after. See FIELD_COPY in src/config/event.ts.
+        hint={cfg.copy.emailNote}
         value={values.email}
         onChange={(e) => set('email', e.target.value)}
         onBlur={() => validateField('email')}

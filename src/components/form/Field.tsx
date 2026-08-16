@@ -62,6 +62,31 @@ export const controlStyle = {
   fontSize: 16,
 }
 
+/**
+ * Always-visible guidance under a field. Quiet, and deliberately not red — this is
+ * what someone reads before they type, so it must not look like something has already
+ * gone wrong.
+ */
+export function HintText({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <span
+      id={id}
+      style={{
+        fontFamily: FONT,
+        fontWeight: 500,
+        fontSize: 11,
+        lineHeight: '140%',
+        letterSpacing: '-0.02em',
+        color: MUTED,
+        display: 'block',
+        marginTop: 6,
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
 export function ErrorText({ id, children }: { id: string; children: ReactNode }) {
   return (
     <span
@@ -84,11 +109,18 @@ export function ErrorText({ id, children }: { id: string; children: ReactNode })
 type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
   id: string
   label: string
+  /** Persistent guidance under the input. Shown whether or not there is an error. */
+  hint?: string
   error?: string
 }
 
-export function Field({ id, label, error, ...input }: FieldProps) {
+export function Field({ id, label, hint, error, ...input }: FieldProps) {
+  const hintId = `${id}-hint`
   const errorId = `${id}-error`
+  // Both, when both exist: the hint is the reason the field is fussy and stays useful
+  // once the error appears, so a screen reader gets the rule and the complaint.
+  const describedBy = [hint && hintId, error && errorId].filter(Boolean).join(' ')
+
   return (
     <div style={{ marginBottom: 22 }}>
       <label htmlFor={id} style={labelStyle}>
@@ -98,12 +130,16 @@ export function Field({ id, label, error, ...input }: FieldProps) {
         id={id}
         {...input}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={describedBy || undefined}
         style={{
           ...controlStyle,
           borderBottomColor: error ? ERROR : FIELD_RULE,
         }}
       />
+      {/* Hint first so it holds a fixed position: an error appears and disappears on
+          every blur, and anchoring the permanent line to the field keeps the block
+          from shifting under the reader each time. */}
+      {hint && <HintText id={hintId}>{hint}</HintText>}
       {error && <ErrorText id={errorId}>{error}</ErrorText>}
     </div>
   )

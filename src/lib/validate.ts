@@ -40,6 +40,23 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const NAME_MAX = 80
 const EMAIL_MAX = 254
 
+/**
+ * sfu.ca and every subdomain of it. Anchored at both ends so `@notsfu.ca` and
+ * `@sfu.ca.example.com` are ordinary addresses, not collateral.
+ */
+const SFU_EMAIL_RE = /@(?:[a-z0-9-]+\.)*sfu\.ca$/i
+
+/**
+ * Refusing a whole domain is a real cost, and it is worth it: SFU's filters quarantine
+ * bulk mail, so the confirmation and the door instructions do not arrive and the person
+ * finds out at the door. Better to lose the address than the guest.
+ *
+ * MUST match the server twin's copy exactly — this is product-specified wording, unlike
+ * the other messages in this file, which are allowed to differ between the two.
+ */
+export const SFU_EMAIL_ERROR =
+  'SFU addresses filter our emails and you will miss your confirmation. Please use a personal address.'
+
 export const EMPTY_VALUES: SignupValues = {
   firstName: '',
   lastName: '',
@@ -100,6 +117,8 @@ export function validateSignup(
   if (!email) fieldErrors.email = 'Required'
   else if (email.length > EMAIL_MAX || !EMAIL_RE.test(email))
     fieldErrors.email = 'Enter a valid email address'
+  // Ordered after the shape check so a typo'd SFU address is reported as a typo.
+  else if (SFU_EMAIL_RE.test(email)) fieldErrors.email = SFU_EMAIL_ERROR
 
   if (!v.phone.trim()) fieldErrors.phone = 'Required'
   else if (phoneDigits.length < 10 || phoneDigits.length > 15)

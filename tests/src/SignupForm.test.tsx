@@ -83,6 +83,16 @@ describe('the form the build plan specifies', () => {
     expect(boxes[0]).not.toBeChecked()
   })
 
+  it('warns off SFU addresses under the email field, before anything is typed', () => {
+    renderForm()
+    const note = screen.getByText(
+      'Please avoid using an @sfu.ca address. School inboxes filter our emails.',
+    )
+    expect(note).toBeInTheDocument()
+    // Wired to the input, not just floating near it.
+    expect(screen.getByLabelText('Email').getAttribute('aria-describedby')).toContain(note.id)
+  })
+
   it('states the privacy notice as text, not as something to tick', () => {
     renderForm()
     expect(screen.getByText(/By signing up you agree to our/)).toBeInTheDocument()
@@ -164,6 +174,21 @@ describe('validation', () => {
     await fillValidForm(user)
     await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
     await waitFor(() => expect(submitSignup).toHaveBeenCalled())
+  })
+
+  it('will not submit an @sfu.ca address, and keeps the note visible alongside the error', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillValidForm(user)
+    await user.clear(screen.getByLabelText('Email'))
+    await user.type(screen.getByLabelText('Email'), 'jordan@sfu.ca')
+    await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
+
+    expect(submitSignup).not.toHaveBeenCalled()
+    expect(screen.getByText(/miss your confirmation/)).toBeInTheDocument()
+    // The advice that would have prevented this does not vanish when it is needed most.
+    expect(screen.getByText(/School inboxes filter our emails/)).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByLabelText('Email'))
   })
 
   it('does not even offer a year that could not be 19 at the door', () => {

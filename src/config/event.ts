@@ -37,6 +37,11 @@ export type SignupCopy = {
   /** Heading on the form, distinct from the section heading above it. */
   formHeading?: string
   formSubheading?: string
+  /**
+   * Always-visible note under the email field. Required, not optional: every list
+   * mails a confirmation, so every list needs the address to be one that receives it.
+   */
+  emailNote: string
   submitLabel: string
   /** Tinted panel directly above the submit button. */
   termsTitle?: string
@@ -289,6 +294,21 @@ const CONSENT_COPY = {
   privacyHref: '/privacy',
 }
 
+/**
+ * Field-level guidance, shared by every list because the fields are.
+ *
+ * `emailNote` is the preventive half of a pair. The other half is a hard rejection of
+ * @sfu.ca in src/lib/validate.ts and its server twin api/_lib/validate.ts: SFU's
+ * filters quarantine bulk mail, so a confirmation sent there usually never arrives and
+ * the person is left with no record of the spot they claimed. This note is what stops
+ * someone typing one in the first place, which is a much better outcome than the
+ * error. Change the rule and change this line with it.
+ */
+const FIELD_COPY = {
+  emailNote:
+    'Please avoid using an @sfu.ca address. School inboxes filter our emails.',
+}
+
 export const LISTS: Record<TicketType, ListConfig> = {
   'presale-guestlist': {
     ticketType: 'presale-guestlist',
@@ -357,6 +377,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
 
       venueShareNote: `We share your name with our venue partner, ${EVENT.venue.name}, for guestlist check-in only.`,
       ...CONSENT_COPY,
+      ...FIELD_COPY,
     },
   },
 
@@ -383,6 +404,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
       closedTitle: 'Early Access Closed',
       closedBody: 'The early access list is closed.',
       ...CONSENT_COPY,
+      ...FIELD_COPY,
     },
   },
 
@@ -410,6 +432,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
       closedTitle: 'Sales Closed',
       closedBody: 'General on-sale has ended.',
       ...CONSENT_COPY,
+      ...FIELD_COPY,
     },
   },
 
@@ -436,6 +459,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
       closedTitle: 'Table Service Closed',
       closedBody: 'Table service inquiries are closed.',
       ...CONSENT_COPY,
+      ...FIELD_COPY,
     },
   },
 }

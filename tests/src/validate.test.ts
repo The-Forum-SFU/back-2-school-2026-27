@@ -4,10 +4,14 @@ import {
   composeDob,
   EMPTY_VALUES,
   isRealDate,
+  SFU_EMAIL_ERROR,
   validateSignup,
   type SignupValues,
 } from '../../src/lib/validate'
-import { validateSignup as validateOnServer } from '../../api/_lib/validate'
+import {
+  SFU_EMAIL_ERROR as SERVER_SFU_EMAIL_ERROR,
+  validateSignup as validateOnServer,
+} from '../../api/_lib/validate'
 
 /**
  * The client half of a deliberately duplicated pair. src/lib/validate.ts and
@@ -136,6 +140,52 @@ describe('validateSignup', () => {
     })
   })
 
+  describe('the @sfu.ca refusal', () => {
+    // The whole point of the list is the confirmation email. An address that filters
+    // it is worse than no address: the person believes they are on the list, gets no
+    // door instructions, and finds out at the door.
+    it('rejects an SFU address, and says why', () => {
+      const result = validateSignup(values({ email: 'jordan@sfu.ca' }), OPTS)
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.fieldErrors.email).toBe(SFU_EMAIL_ERROR)
+    })
+
+    it('rejects subdomains and ignores case', () => {
+      for (const email of [
+        'jordan@mail.sfu.ca',
+        'jordan@alumni.sfu.ca',
+        'jordan@SFU.CA',
+        'Jordan@Mail.SFU.Ca',
+        'jordan@a.b.sfu.ca',
+      ]) {
+        expect(validateSignup(values({ email }), OPTS).ok, email).toBe(false)
+      }
+    })
+
+    it('does not catch domains that merely contain or extend sfu.ca', () => {
+      // The anchors earn their keep here: each of these is somebody else's domain.
+      for (const email of [
+        'jordan@notsfu.ca',
+        'jordan@sfu.california.com',
+        'jordan@sfu.ca.example.com',
+        'jordan@sfuca.com',
+        'jordan@example.com',
+      ]) {
+        expect(validateSignup(values({ email }), OPTS).ok, email).toBe(true)
+      }
+    })
+
+    it('calls a malformed SFU address malformed, not filtered', () => {
+      // Shape first: "jordan@sfu" is a typo, and telling that person to use a
+      // personal address instead of fixing the typo is the wrong instruction.
+      const result = validateSignup(values({ email: 'jordan@sfu' }), OPTS)
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.fieldErrors.email).toBe('Enter a valid email address')
+    })
+  })
+
   it('accepts phone numbers in the shapes people actually type', () => {
     for (const phone of ['6045550123', '(604) 555-0123', '604-555-0123', '+1 604 555 0123']) {
       expect(validateSignup(values({ phone }), OPTS).ok, phone).toBe(true)
@@ -167,6 +217,9 @@ describe('twin-file drift', () => {
     ['email with no dot', { email: 'a@b' }],
     ['email with a space', { email: 'a b@c.com' }],
     ['over-long email', { email: `${'a'.repeat(250)}@b.com` }],
+    ['sfu address', { email: 'jordan@sfu.ca' }],
+    ['sfu subdomain', { email: 'jordan@mail.sfu.ca' }],
+    ['a domain that only looks like sfu.ca', { email: 'jordan@notsfu.ca' }],
     ['empty phone', { phone: '' }],
     ['short phone', { phone: '12345' }],
     ['16-digit phone', { phone: '1'.repeat(16) }],
@@ -201,6 +254,15 @@ describe('twin-file drift', () => {
       expect(server.normalized.dob).toBe(client.dob)
       expect(server.normalized.email).toBe(v.email.trim().toLowerCase())
     }
+  })
+
+  it('words the SFU refusal identically on both sides', () => {
+    // The one message that is NOT allowed to differ. It is product-specified copy,
+    // and the server's version is what a hand-rolled POST sees rendered on the form.
+    expect(SFU_EMAIL_ERROR).toBe(SERVER_SFU_EMAIL_ERROR)
+    expect(SFU_EMAIL_ERROR).toBe(
+      'SFU addresses filter our emails and you will miss your confirmation. Please use a personal address.',
+    )
   })
 
   it('leaves the age gate to the client and the database, never to the API validator', () => {
