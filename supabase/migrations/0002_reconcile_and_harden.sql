@@ -66,6 +66,28 @@ grant all on table public.submissions to service_role;
 grant all on table public.ticket_lists to service_role;
 grant usage, select on all sequences in schema public to service_role;
 
+-- Drop the slot-number uniqueness left over from the pre-repo schema.
+--
+-- Neither 0001 nor this file creates it, so a database built from these migrations has
+-- never had it: it exists only on the live project, which is why the failure it caused
+-- could not be reproduced from the repo. Dropping it is what stops prod and a fresh
+-- deploy from disagreeing about the schema.
+--
+-- On the live project this is a bare unique index, not a table constraint:
+--
+--   CREATE UNIQUE INDEX submissions_type_slot_uniq
+--     ON public.submissions USING btree (ticket_type, slot_number)
+--
+-- so `drop index` is the line that does the work and `drop constraint` is the belt for
+-- a database where it was declared the other way. Both are silent no-ops when the
+-- object isn't there — including when it exists under a name neither one matches, so
+-- check pg_indexes rather than reading a clean run as proof.
+--
+-- If the invariant is wanted back it belongs in this file as a declared index, not as
+-- something only the live database knows about. Read the allocator note in section 4
+-- first: it makes uniqueness a property of the code rather than a check on it.
+alter table public.submissions drop constraint if exists submissions_type_slot_uniq;
+drop index if exists public.submissions_type_slot_uniq;
 
 -- ---------------------------------------------------------------------------
 -- 3. Drop every stale claim_signup overload.
@@ -131,6 +153,7 @@ declare
   v_email    text := lower(btrim(p_email));
   v_existing public.submissions%rowtype;
   v_taken    integer;
+  v_max_slot integer;
   v_age      integer;
   v_recent   integer;
   v_row      public.submissions%rowtype;
@@ -195,7 +218,20 @@ begin
     end if;
   end if;
 
-  select count(*) into v_taken
+  -- Two different questions, answered by two different aggregates on purpose.
+  --
+  -- count(*) is OCCUPANCY, and belongs to the cap: a deleted row frees a spot, so the
+  -- number of people on the list has to be a live count.
+  --
+  -- max(slot_number) is the QUEUE POSITION, and it only ever goes up: a slot is handed
+  -- out once and a deleted row does not pass its number to the next person.
+  --
+  -- Answering both with count(*) was the bug. With rows sitting at slots 1, 3 and 4 —
+  -- any list that has had a row deleted — count(*) + 1 is 4, which is already taken.
+  -- max + 1 is 5, and stays right for any arrangement of gaps. coalesce covers the
+  -- first signup on a list and any legacy row whose slot_number was never populated.
+  select count(*), coalesce(max(slot_number), 0)
+    into v_taken, v_max_slot
     from public.submissions
    where ticket_type = p_ticket_type;
 
@@ -220,7 +256,7 @@ begin
     case when p_consent_opt_in then now() else null end,
     p_privacy_text,
     case when p_privacy_accepted then now() else null end,
-    p_ticket_type, v_age, v_taken + 1,
+    p_ticket_type, v_age, v_max_slot + 1,
     nullif(p_attribution ->> 'fbclid', ''),
     nullif(p_attribution ->> 'fbp', ''),
     nullif(p_attribution ->> 'utmSource', ''),
@@ -233,12 +269,25 @@ begin
 
 exception
   when unique_violation then
-    -- Unreachable while the row lock holds. Kept so that a future refactor which
-    -- drops the lock degrades to "idempotent success" instead of a 500.
+    -- The email index is the only one this can legitimately hit, and hitting it means a
+    -- genuine double-submit: idempotent success is the right answer, and stays right if
+    -- a future refactor drops the row lock.
+    --
+    -- Any OTHER unique violation is a bug in this function, and the `if found` is what
+    -- keeps it from being disguised as one. Without it, `v_existing` is simply an empty
+    -- row and the old code returned `already_registered` with a null id — a first-time
+    -- signup was told they were on a list they had never joined, their row was never
+    -- written, and nothing anywhere recorded a failure. That is exactly how the
+    -- slot_number collision above ran in production without paging anyone. Re-raising
+    -- turns the same class of bug into a 500 the handler logs.
     select * into v_existing
       from public.submissions
      where ticket_type = p_ticket_type and email_norm = v_email;
-    return jsonb_build_object('status', 'already_registered', 'id', v_existing.id);
+    if found then
+      return jsonb_build_object('status', 'already_registered', 'id', v_existing.id);
+    else
+      raise;
+    end if;
 end;
 $$;
 

@@ -98,6 +98,22 @@ describe('claim_signup', () => {
     expect(current).toMatch(/where ip_hash = p_ip_hash/)
     expect(current).toMatch(/v_recent >= 5/)
   })
+
+  it('allocates the slot from max(slot_number), not from the row count', () => {
+    // The production failure: a list whose rows sat at slots 1, 3 and 4 after a delete
+    // had count(*) + 1 = 4, which was already taken. Occupancy and queue position are
+    // different questions — a deleted row frees a spot but never lends out its number.
+    const sql = stripComments(current)
+    expect(sql).toMatch(/coalesce\(max\(slot_number\), 0\)/)
+    expect(sql).not.toMatch(/v_taken \+ 1/)
+  })
+
+  it('re-raises a unique violation that is not the email dedup', () => {
+    // Returning already_registered unconditionally tells a first-time signup they are
+    // on a list they never joined, drops their row, and logs nothing.
+    const handler = stripComments(current.slice(current.indexOf('when unique_violation')))
+    expect(handler).toMatch(/if found then[\s\S]{0,200}else[\s\S]{0,40}raise;/)
+  })
 })
 
 describe('privilege and isolation', () => {
