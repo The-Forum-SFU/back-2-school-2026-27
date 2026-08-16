@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { rpc } from './_lib/supabase'
-import { isTicketType, type ListStatus } from './_lib/types'
+import { rpc } from './_lib/supabase.js'
+import { isTicketType, type ListStatus } from './_lib/types.js'
 
 /**
  * GET /api/list-status?ticketType=presale-guestlist

@@ -6,13 +6,18 @@
        fetch/Response/Headers/URL/AbortSignal as globals. Adding DOM here would let
        `document.` typecheck and then blow up at runtime on Vercel. */
     "lib": ["ES2023"],
-    "module": "ESNext",
+    "module": "NodeNext",
     "skipLibCheck": true,
 
-    /* "bundler", not "nodenext": Vercel compiles /api with esbuild, which resolves
-       extensionless relative imports fine. nodenext + "type": "module" would force a
-       .js extension on every internal import for no benefit. */
-    "moduleResolution": "bundler",
+    /* "nodenext", NOT "bundler". This previously said bundler on the theory that Vercel
+       bundles /api with esbuild and resolves extensionless relative imports. It does
+       not — it transpiles each file separately, so `import './_lib/brevo'` survives
+       into the deployed signup.js. With "type": "module" in package.json, Node runs
+       that as ESM, ESM requires an explicit extension on relative specifiers, and every
+       request dies with ERR_MODULE_NOT_FOUND before the handler is ever entered.
+       Vite's ssrLoadModule resolves extensionless paths, so dev never reproduces it.
+       nodenext makes tsc reject a missing extension at typecheck time instead. */
+    "moduleResolution": "NodeNext",
     "types": ["node"],
     "isolatedModules": true,
     "moduleDetection": "force",

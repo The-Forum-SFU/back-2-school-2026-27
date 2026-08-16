@@ -1,5 +1,5 @@
-import { optionalEnv } from './env'
-import { hashDob, hashEmail, hashName, hashPhone } from './hash'
+import { optionalEnv } from './env.js'
+import { hashDob, hashEmail, hashName, hashPhone } from './hash.js'
 
 /**
  * Meta Conversions API — server-side `Lead`.

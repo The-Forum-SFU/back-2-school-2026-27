@@ -1,4 +1,4 @@
-import type { FieldErrors, SignupRequest } from './types'
+import type { FieldErrors, SignupRequest } from './types.js'
 
 /**
  * Server-side validation. **Authoritative.**

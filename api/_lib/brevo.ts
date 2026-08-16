@@ -1,5 +1,5 @@
-import { optionalEnv } from './env'
-import type { TicketType } from './types'
+import { optionalEnv } from './env.js'
+import type { TicketType } from './types.js'
 
 /**
  * Brevo contact sync.

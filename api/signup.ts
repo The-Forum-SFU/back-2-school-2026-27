@@ -1,17 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { syncToBrevo } from './_lib/brevo'
-import { optionalEnv, requireEnv } from './_lib/env'
-import { hashIp, resolveIpSalt } from './_lib/hash'
-import { buildFbc, sendLeadEvent } from './_lib/meta'
-import { patchSubmission, rpc } from './_lib/supabase'
-import { isTicketType, type ClaimResult, type SignupRequest, type SignupResult } from './_lib/types'
+import { syncToBrevo } from './_lib/brevo.js'
+import { optionalEnv, requireEnv } from './_lib/env.js'
+import { hashIp, resolveIpSalt } from './_lib/hash.js'
+import { buildFbc, sendLeadEvent } from './_lib/meta.js'
+import { patchSubmission, rpc } from './_lib/supabase.js'
+import { isTicketType, type ClaimResult, type SignupRequest, type SignupResult } from './_lib/types.js'
 import {
   ATTRIBUTION_VALUE_MAX,
   clampText,
   EVENT_ID_MAX,
   RECORDED_TEXT_MAX,
   validateSignup,
-} from './_lib/validate'
+} from './_lib/validate.js'
 
 /**
  * POST /api/signup — the only write path for signups.

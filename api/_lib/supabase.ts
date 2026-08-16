@@ -1,4 +1,4 @@
-import { requireEnv } from './env'
+import { requireEnv } from './env.js'
 
 /**
  * Minimal PostgREST client.
