@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      # Add any additional branches you want to mirror (e.g., staging, dev)
+    # Add any additional branches you want to mirror (e.g., staging, dev)
 
 jobs:
   mirror:
