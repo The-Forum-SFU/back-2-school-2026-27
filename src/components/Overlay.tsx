@@ -129,15 +129,19 @@ export function Caption({ vp }: { vp: Viewport }) {
 
 
 /**
- * [ TICKETS ], top right.
+ * The header control, top right.
  *
  * `overlayBase` disables pointer events for every layer, so an interactive element
  * re-enables them on itself only.
  *
- * Three states, in priority order: an external link once General On-Sale opens, a
- * jump to the signup section on a route that has one, and otherwise plain inert text
- * — a route with no bottom section has nowhere to send anyone, and a button that
- * silently does nothing is worse than a label.
+ * Three states, in priority order: an external [ TICKETS ] link once General On-Sale
+ * opens, an [ RSVP ] jump to the signup section on a route that has one, and otherwise
+ * plain inert text — a route with no bottom section has nowhere to send anyone, and a
+ * button that silently does nothing is worse than a label.
+ *
+ * All three stay bracketed text. The brackets ARE the affordance in this header, and
+ * the hero's one real button is the cue on the left rail — a second boxed control up
+ * here would split the emphasis rather than add to it. Bigger type is the whole change.
  */
 export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean }) {
   const external = EVENT.tickets.enabled && EVENT.tickets.url
@@ -145,7 +149,7 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
   const textStyle = {
     fontFamily: FONT,
     fontWeight: 500,
-    fontSize: vp.isDesktop ? 15 : 13,
+    fontSize: vp.isDesktop ? 19 : 16,
     color: '#fff',
     whiteSpace: 'nowrap' as const,
     background: 'none',
@@ -165,7 +169,6 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
         ...overlayBase,
         top: vp.isMobile ? 16 : 32,
         right: vp.isMobile ? 16 : 32,
-        height: 30,
         display: 'flex',
         flexDirection: 'row',
         justifyContent: 'flex-end',
@@ -177,8 +180,14 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
           [ TICKETS ]
         </a>
       ) : hasBottom ? (
+        /*
+          "RSVP", not "TICKETS". Every route that reaches this branch sends you to a
+          list form where nothing is charged and no ticket is issued, and the copy in
+          that form already says so — a header that promises tickets and delivers a
+          signup is the mismatch people bounce on.
+        */
         <button type="button" onClick={scrollToSignup} style={textStyle}>
-          [ TICKETS ]
+          [ RSVP ]
         </button>
       ) : (
         <span style={{ ...textStyle, cursor: 'default', pointerEvents: 'none' }}>
@@ -194,6 +203,18 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
  *
  * Sits below the Caption on the same left rail, and inherits the exclusion blending
  * so it reads correctly over both the light hero and the black panel.
+ *
+ * The one control on the hero drawn as an actual button. It is the only thing here we
+ * want pressed, and as 15px bracketed text it sat in the same register as the caption
+ * above it — indistinguishable from the copy it was competing with. The pill replaces
+ * the brackets rather than joining them: an outline around a bracketed label is the
+ * same enclosure drawn twice.
+ *
+ * Outlined, not filled. The whole overlay blends with `exclusion`, so a solid fill
+ * inverts as a slab and reads as a hole punched in the artwork, while an outline
+ * inverts as a hairline and keeps the hero visible through the button. `lineHeight: 1`
+ * is what makes the padding symmetric — the font's own line box would otherwise sit
+ * the label low in the pill.
  */
 export function ScrollCue({ vp }: { vp: Viewport }) {
   return (
@@ -201,7 +222,12 @@ export function ScrollCue({ vp }: { vp: Viewport }) {
       {...riseIn(0.45)}
       style={{
         ...overlayBase,
-        left: vp.isMobile ? 16 : 32,
+        // Centred on mobile, where the button sits alone in the white band above the
+        // hero rather than on a rail with anything to align to. Everywhere else it
+        // stays on the left rail under the Caption.
+        ...(vp.isMobile
+          ? { left: 0, right: 0, display: 'flex', justifyContent: 'center' }
+          : { left: 32 }),
         top: vp.isDesktop ? 300 : vp.isTablet ? 236 : 174,
       }}
     >
@@ -211,19 +237,21 @@ export function ScrollCue({ vp }: { vp: Viewport }) {
         style={{
           fontFamily: FONT,
           fontWeight: 500,
-          fontSize: vp.isDesktop ? 15 : 13,
+          fontSize: vp.isDesktop ? 19 : 16,
+          lineHeight: 1,
           letterSpacing: '-0.02em',
           textTransform: 'uppercase',
           color: '#fff',
           background: 'none',
-          border: 'none',
-          padding: 0,
+          border: `${vp.isDesktop ? 2 : 1.5}px solid #fff`,
+          borderRadius: 999,
+          padding: vp.isDesktop ? '16px 32px' : '13px 24px',
           cursor: 'pointer',
           pointerEvents: 'auto',
           whiteSpace: 'nowrap',
         }}
       >
-        [ GET ON THE LIST ↓ ]
+        GET ON THE LIST ↓
       </button>
     </motion.div>
   )

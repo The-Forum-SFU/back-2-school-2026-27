@@ -21,6 +21,17 @@ const INFO_BAND = 210
 /** Feather above the band. Pure taste — INFO_BAND is what carries the contrast. */
 const FEATHER = 170
 
+/**
+ * Where the image starts on mobile, measured from the top of the viewport. Everything
+ * above it is the white band the logo, caption and ScrollCue sit in.
+ *
+ * Sized against the tallest thing in that band, which is the ScrollCue: it starts at
+ * 174 (Overlay.tsx) and the pill runs ~45px, so anything under ~240 puts the button's
+ * bottom edge flush against the crop. The extra room here is that clearance — change
+ * the cue's type or padding and this number has to move with it.
+ */
+const MOBILE_TOP = 244
+
 /** Where the solid band ends, as a gradient stop. */
 const PLATEAU = Math.round((INFO_BAND / (INFO_BAND + FEATHER)) * 100)
 
@@ -103,9 +114,9 @@ export default function HeroCanvas({ vp }: Props) {
         position: 'fixed',
         zIndex: 0,
         left: 0,
-        top: isMobile ? 220 : 0,
+        top: isMobile ? MOBILE_TOP : 0,
         width: isMobile ? '100vw' : '100%',
-        height: isMobile ? 'calc(100vh - 220px)' : '100%',
+        height: isMobile ? `calc(100vh - ${MOBILE_TOP}px)` : '100%',
         opacity: loaded ? 1 : 0,
         transition: 'opacity 0.3s ease',
         touchAction: 'pan-y',
