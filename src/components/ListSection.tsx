@@ -24,7 +24,14 @@ import { INK, MUTED } from './form/Field'
  * nothing else — no counter, no "spots left", no progress bar, at any point.
  */
 
-/** Re-render on an interval so a page left open across a window boundary flips live. */
+/**
+ * Re-render on an interval so a page with no server answer still flips at the window
+ * boundary.
+ *
+ * This only ever reaches the render below while `serverPhase` is null, i.e. when
+ * /api/list-status could not be read at all. That is the one case where the local clock
+ * is the best information available. Everything else is driven by the poll.
+ */
 function useNow(intervalMs: number): Date {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -34,12 +41,17 @@ function useNow(intervalMs: number): Date {
   return now
 }
 
+/** How often a pristine page re-asks the server for the phase. */
+const POLL_MS = 60_000
+
 export default function ListSection({ ticketType }: { ticketType: TicketType }) {
   const cfg = LISTS[ticketType]
   const vp = useViewport()
   const now = useNow(60_000)
 
   const [serverPhase, setServerPhase] = useState<ListPhase | null>(null)
+  /** Set once the visitor edits any field. Freezes the poll — see the effect below. */
+  const [formDirty, setFormDirty] = useState(false)
 
   useEffect(() => {
     captureAttribution()
@@ -59,6 +71,36 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
       cancelled = true
     }
   }, [ticketType])
+
+  /**
+   * Keep a long-open page honest, but only while it is safe to act on the answer.
+   *
+   * The fetch above runs once. Without this, `serverPhase ?? resolveListPhase(...)`
+   * stopped consulting the clock the moment that answer landed, so a tab opened at
+   * 23:50 on the closing night still showed a working form at 00:05 and the `useNow`
+   * ticker above could do nothing about it.
+   *
+   * GATED ON `formDirty`, which is the whole design. Swapping RsvpClosed in under
+   * someone who is halfway through typing would destroy what they had entered in order
+   * to tell them something their submit is about to tell them anyway: a late claim is
+   * rejected server-side and `onResult` swaps the section then, with nothing to lose.
+   * So the poll serves the pristine page that was left open and gets out of the way the
+   * instant anyone starts filling it in.
+   */
+  useEffect(() => {
+    if (formDirty) return
+    let cancelled = false
+    const id = window.setInterval(() => {
+      fetchListStatus(ticketType).then((status) => {
+        if (cancelled || !status) return
+        setServerPhase(status.phase)
+      })
+    }, POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [ticketType, formDirty])
 
   // Render the config-derived phase on the first frame so there's no spinner, then
   // let the server's answer replace it when it lands. The config can only reason about
@@ -114,7 +156,12 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
 
       <PriceComparison vp={vp} />
 
-      <SignupForm cfg={cfg} vp={vp} onResult={onResult} />
+      <SignupForm
+        cfg={cfg}
+        vp={vp}
+        onResult={onResult}
+        onDirty={() => setFormDirty(true)}
+      />
     </motion.div>
   )
 }

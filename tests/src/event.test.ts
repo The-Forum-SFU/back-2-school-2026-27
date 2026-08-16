@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   calendarUrl,
@@ -176,6 +178,37 @@ describe('copy compliance', () => {
   it('uses no em dashes anywhere in user-facing copy', () => {
     for (const [path, text] of allCopy()) {
       expect(text, `${path}: ${text}`).not.toMatch(/—/)
+    }
+  })
+
+  /**
+   * The check above only ever walked src/config/event.ts, so a rendered string written
+   * straight into a component was never covered. That is not hypothetical: the
+   * full/closed panel shipped `${next.label} — details coming soon.`, which renders the
+   * moment the guestlist fills or the window shuts, and this suite passed the whole time.
+   *
+   * Comments are stripped first because the prose in these files uses em dashes heavily
+   * and legitimately. What is left is code, where the only place an em dash can appear
+   * is a string literal or JSX text — both of which reach the page.
+   */
+  it('uses no em dashes in strings written directly into components', () => {
+    const dirs = ['src/components', 'src/components/form', 'src/pages']
+    const files = dirs.flatMap((dir) =>
+      readdirSync(join(process.cwd(), dir))
+        .filter((f) => f.endsWith('.tsx'))
+        .map((f) => join(dir, f)),
+    )
+    // Guards the guard: a bad path list would make this pass by scanning nothing.
+    expect(files.length).toBeGreaterThan(10)
+
+    const stripComments = (src: string) =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+
+    for (const file of files) {
+      const code = stripComments(readFileSync(join(process.cwd(), file), 'utf8'))
+      code.split('\n').forEach((line, i) => {
+        expect(line, `${file}:${i + 1}: ${line.trim()}`).not.toMatch(/—/)
+      })
     }
   })
 

@@ -109,9 +109,11 @@ export default function RsvpClosed({ cfg, phase, vp }: Props) {
           into the button above — one line, no refactor. */}
       {next && !next.enabled && (
         <p style={{ ...mutedStyle, marginTop: 4 }}>
+          {/* Two sentences rather than a dash: the build plan's no-em-dash rule covers
+              every user-facing string, not just the ones in src/config/event.ts. */}
           {nextOpensLater && next.availableFrom
             ? `${next.label} opens ${formatShortDate(next.availableFrom)}.`
-            : `${next.label} — details coming soon.`}
+            : `${next.label}. Details coming soon.`}
         </p>
       )}
     </div>

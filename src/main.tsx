@@ -16,6 +16,7 @@ import { ROUTES } from './routes'
 const Landing = lazy(() => import('./App'))
 const Guestlist = lazy(() => import('./pages/Guestlist'))
 const Confirmed = lazy(() => import('./pages/Confirmed'))
+const Privacy = lazy(() => import('./pages/Privacy'))
 
 // Matches the global body background so a chunk's load window doesn't flash.
 const Fallback = <div style={{ position: 'fixed', inset: 0, background: '#fff' }} />
@@ -28,6 +29,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path={ROUTES.LANDING} element={<Landing />} />
           <Route path={ROUTES.GUESTLIST} element={<Guestlist />} />
           <Route path={ROUTES.CONFIRMED} element={<Confirmed />} />
+          {/* Must be a real route, not the catch-all below: the form's consent notice
+              links here and records that sentence against every submission. */}
+          <Route path={ROUTES.PRIVACY} element={<Privacy />} />
           {/* `replace` so the back button returns to the form, not to a redirect that
               bounces straight forward again. */}
           <Route

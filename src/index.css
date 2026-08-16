@@ -39,6 +39,16 @@ body {
   /* Distance from the left edge to the red margin rule. The section's own left
      padding has to clear this or body text lands on top of it. */
   --margin-x: 16px;
+  /*
+     How far the tone gradient runs before the flat background-color takes over.
+
+     This is a BANDING budget, not a taste value. The tone spans 11 steps of 8-bit
+     colour, and a step becomes visible as a hard edge somewhere past a few hundred
+     pixels each, so this has to stay in the range where one screen shows at most a
+     couple of steps. Roughly a viewport is right. Raising it toward the height of a
+     long page is what produced the stripes this replaced.
+  */
+  --tone-run: 1200px;
 
   --paper: #fcfcf7;
   --paper-shade: #f1f1e8;
@@ -49,9 +59,32 @@ body {
   --rule-ink: rgba(84, 134, 196, 0.26);
   --margin-ink: rgba(201, 88, 88, 0.3);
 
-  background-color: var(--paper);
+  /*
+    EVERY LAYER BELOW IS TILED OR BOUNDED, NEVER STRETCHED TO THE ELEMENT.
+
+    This sheet was built for the signup section, which is about one viewport tall. The
+    privacy policy is the first long page to use it, at roughly 7,000px on desktop and
+    15,000px on a phone, and stretching these gradients over that broke both of them:
+
+      1. BANDING. The tone below travels #fcfcf7 to #f1f1e8, which is 11 steps of 8-bit
+         colour. Over 800px that is a step every ~73px and invisible. Over 15,000px it
+         is a step every ~1,360px, so the "barely-there tone" renders as a dozen flat
+         horizontal bands with hard edges down the page. That is the glitch.
+      2. SMEARED RULES. A background stretched past the compositor's max texture size
+         (16,384px, and a phone multiplies by its device pixel ratio) is rasterized
+         small and scaled up, which turns 1px hairlines into soft grey mush that drifts
+         in and out of alignment.
+
+    So: the two rule layers are ONE tile each, repeated, and the tone is capped. Nothing
+    here depends on how tall the page is any more. Keep it that way when editing.
+  */
+
+  /* The colour the tone settles INTO, not the one it starts from. The tone stops after
+     --tone-run and this is what continues below it, so there is no seam at the join. */
+  background-color: var(--paper-shade);
   background-image:
-    /* Red margin rule, full height, 1px. */
+    /* Red margin rule. Uniform down the page, so one short tile repeated is identical
+       to a full-height gradient and cannot be downsampled. */
     linear-gradient(
       90deg,
       transparent calc(var(--margin-x) - 1px),
@@ -59,17 +92,22 @@ body {
       var(--margin-ink) var(--margin-x),
       transparent var(--margin-x)
     ),
-    /* Blue ruling. The 1px band sits at the BOTTOM of each repeat, so the first
-       line falls one --rule-gap below the top edge rather than on it. */
-      repeating-linear-gradient(
+    /* Blue ruling: ONE line, sitting at the bottom of a --rule-gap tall tile, so the
+       first rule falls one --rule-gap below the top edge rather than on it. Tiling
+       rather than repeating-linear-gradient is what keeps it hairline sharp on a long
+       page, and it also stops rounding error accumulating across hundreds of periods. */
+      linear-gradient(
         180deg,
-        transparent 0,
         transparent calc(var(--rule-gap) - 1px),
-        var(--rule-ink) calc(var(--rule-gap) - 1px),
-        var(--rule-ink) var(--rule-gap)
+        var(--rule-ink) calc(var(--rule-gap) - 1px)
       ),
     /* Barely-there tone down the sheet, so it reads as paper and not as #fff. */
       linear-gradient(180deg, var(--paper) 0%, var(--paper-shade) 100%);
+  background-size:
+    100% var(--rule-gap),
+    100% var(--rule-gap),
+    100% var(--tone-run);
+  background-repeat: repeat-y, repeat-y, no-repeat;
 }
 
 @media (min-width: 641px) {

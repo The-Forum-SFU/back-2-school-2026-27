@@ -36,11 +36,17 @@ type Props = {
   cfg: ListConfig
   vp: Viewport
   onResult?: (r: SignupResponse) => void
+  /**
+   * Fired once, on the first edit to any field. The section uses it to stop polling
+   * the list status, so a phase change can never swap this form out from under
+   * someone mid-fill and discard what they had typed. See ListSection.
+   */
+  onDirty?: () => void
 }
 
 type Phase = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'done'; response: SignupResponse }
 
-export default function SignupForm({ cfg, vp, onResult }: Props) {
+export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
   const navigate = useNavigate()
   const [values, setValues] = useState<SignupValues>(EMPTY_VALUES)
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -50,6 +56,7 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
 
   const mountedAt = useRef(Date.now())
   const formRef = useRef<HTMLFormElement>(null)
+  const dirtyRef = useRef(false)
 
   /**
    * Stable across retries, regenerated only after a successful signup.
@@ -83,6 +90,11 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
   }, [phase, onResult])
 
   function set<K extends FieldName>(key: K, value: SignupValues[K]) {
+    // Ref-guarded so this fires exactly once per mount no matter how much is typed.
+    if (!dirtyRef.current) {
+      dirtyRef.current = true
+      onDirty?.()
+    }
     setValues((prev) => ({ ...prev, [key]: value }))
     // Clear the error as soon as the user engages; re-validated on blur and submit.
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))

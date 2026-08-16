@@ -18,6 +18,8 @@
  *     unconfirmed TicketWeb fee can move without leaving a stale number behind.
  */
 
+import { ROUTES } from '../routes'
+
 export type TicketType =
   | 'presale-guestlist'
   | 'early-access'
@@ -284,14 +286,18 @@ const TICKET = money(P.ticketCents)
  * There is no age checkbox any more. The birthdate is the attestation, and it is a
  * stronger one than a tick — see the note in src/lib/signupApi.ts.
  *
- * TODO: `privacyHref` points at a route that does not exist yet.
+ * `privacyHref` reads from ROUTES rather than repeating the path. It used to be the
+ * literal '/privacy' with no route behind it, so the link resolved through the
+ * catch-all onto the landing page: every signup was told it agreed to a document it
+ * could not open, while `submissions.privacy_text` recorded that it had. Pointing both
+ * at one constant is what stops that reopening.
  */
 const CONSENT_COPY = {
   consentLabel:
     'Opt in to email and SMS from The Forum. First access to presales, member pricing, and giveaways.',
   privacyNotice: 'By signing up you agree to our',
   privacyLinkText: 'Privacy Policy',
-  privacyHref: '/privacy',
+  privacyHref: ROUTES.PRIVACY,
 }
 
 /**

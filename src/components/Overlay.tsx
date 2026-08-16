@@ -3,6 +3,7 @@ import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
 import { EVENT, formatDoorStamp } from '../config/event'
 import { scrollToSignup } from '../lib/scrollToSignup'
 import type { Viewport } from '../lib/viewport'
+import { ROUTES } from '../routes'
 
 const EASE: [number, number, number, number] = [0.25, 0.1, 0.25, 1]
 const DURATION = 0.6
@@ -437,7 +438,24 @@ export function Footer({ vp }: { vp: Viewport }) {
       }}
     >
       <span style={textStyle}>The Forum University 2026</span>
-      <span style={textStyle}>Privacy Policy</span>
+      {/*
+        A real link now that /privacy exists. `pointerEvents` is re-enabled on this one
+        element because the wrapper disables it for the whole footer layer, the same way
+        HeaderNav does.
+
+        The outro footer fades in with `opacity` and is only ever visible at the very
+        bottom of the scroll, so this is never a tap target sitting invisibly over the
+        hero. New tab, matching the consent notice on the form: an in-app navigation
+        from the form would unmount it and destroy everything typed.
+      */}
+      <a
+        href={ROUTES.PRIVACY}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ ...textStyle, pointerEvents: 'auto', textDecoration: 'none' }}
+      >
+        Privacy Policy
+      </a>
     </div>
   )
 }
