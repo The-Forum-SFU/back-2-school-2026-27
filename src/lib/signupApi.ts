@@ -40,10 +40,13 @@ export type SignupResponse =
  * and `privacyAccepted`, which are no longer fields on the form. Those are dropped
  * here rather than passed through as errors nothing can render, which lets the form
  * detect "invalid, but nothing to mark" and say so out loud.
+ *
+ * `consentOptIn` is on the list precisely because it IS a field — the server requires
+ * it now, and a rejection has a checkbox to land on.
  */
 type ServerFieldErrors = Record<string, string | undefined>
 
-const RENDERED_FIELDS = ['firstName', 'lastName', 'email', 'phone'] as const
+const RENDERED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'consentOptIn'] as const
 
 function toClientErrors(raw: ServerFieldErrors): FieldErrors {
   const mapped: FieldErrors = {}

@@ -27,7 +27,7 @@ function validBody(overrides: Partial<SignupRequest> = {}): Partial<SignupReques
     dob: '2004-04-12',
     ageConfirmed: true,
     privacyAccepted: true,
-    consentOptIn: false,
+    consentOptIn: true,
     ...overrides,
   }
 }
@@ -177,9 +177,17 @@ describe('validateSignup', () => {
     expect(validateSignup(validBody({ ageConfirmed: 'yes' as never })).ok).toBe(false)
   })
 
-  it('never requires consentOptIn — under CASL it cannot be a condition of signing up', () => {
-    expect(validateSignup(validBody({ consentOptIn: false })).ok).toBe(true)
-    expect(validateSignup(validBody({ consentOptIn: undefined })).ok).toBe(true)
+  it('requires consentOptIn — a spot on the list is only given to someone who opted in', () => {
+    // The gate that matters. The client has its own copy of this check, and a
+    // hand-rolled POST runs none of it.
+    for (const missing of [{ consentOptIn: false }, { consentOptIn: undefined }] as const) {
+      const result = validateSignup(validBody(missing))
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.fieldErrors.consentOptIn).toBeTruthy()
+    }
+    // Truthy-but-not-true must not pass, same as the two attestations above.
+    expect(validateSignup(validBody({ consentOptIn: 'yes' as never })).ok).toBe(false)
   })
 
   it('reports every bad field at once rather than one per round trip', () => {

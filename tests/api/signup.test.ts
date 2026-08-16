@@ -296,9 +296,16 @@ describe('what reaches the database', () => {
     expect(args.p_phone).toBe('+16045550123')
   })
 
-  it('records consent as false, and stores no consent text, when the box was not ticked', async () => {
-    await post(validBody({ consentOptIn: false }))
-    expect(rpcArgs().p_consent_opt_in).toBe(false)
+  it('refuses the signup outright when the box was not ticked, and writes no row', async () => {
+    const captured = await post(validBody({ consentOptIn: false }))
+    expect(captured.status).toBe(400)
+    expect(captured.body).toMatchObject({ status: 'invalid' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('passes the opt-in through as a real boolean when it was ticked', async () => {
+    await post(validBody({ consentOptIn: true }))
+    expect(rpcArgs().p_consent_opt_in).toBe(true)
   })
 
   it('coerces the attestations to real booleans rather than passing them through', async () => {

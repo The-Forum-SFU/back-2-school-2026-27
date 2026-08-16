@@ -49,6 +49,7 @@ function renderForm(onResult?: (r: SignupResponse) => void) {
   return seen
 }
 
+/** Every field the form will not submit without — the opt-in among them. */
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('First name'), 'Jordan')
   await user.type(screen.getByLabelText('Last name'), 'Nguyen')
@@ -57,6 +58,7 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(screen.getByLabelText('Birth month'), '4')
   await user.selectOptions(screen.getByLabelText('Birth day'), '12')
   await user.selectOptions(screen.getByLabelText('Birth year'), '2004')
+  await user.click(screen.getByRole('checkbox'))
 }
 
 beforeEach(() => {
@@ -142,7 +144,21 @@ describe('validation', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('First name'))
   })
 
-  it('does not require the opt-in', async () => {
+  it('will not submit a complete form with the opt-in unticked', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillValidForm(user)
+    await user.click(screen.getByRole('checkbox')) // back off again
+
+    await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
+
+    expect(submitSignup).not.toHaveBeenCalled()
+    expect(screen.getByText('Tick this box to join the list')).toBeInTheDocument()
+    // Nothing else is wrong, so the box is where the user is put.
+    expect(document.activeElement).toBe(screen.getByRole('checkbox'))
+  })
+
+  it('submits once the opt-in is ticked', async () => {
     const user = userEvent.setup()
     renderForm()
     await fillValidForm(user)
@@ -184,11 +200,10 @@ describe('validation', () => {
 })
 
 describe('submission', () => {
-  it('sends the opt-in state it was given', async () => {
+  it('sends the opt-in and the exact wording that was ticked', async () => {
     const user = userEvent.setup()
     renderForm()
     await fillValidForm(user)
-    await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
 
     await waitFor(() => expect(submitSignup).toHaveBeenCalled())

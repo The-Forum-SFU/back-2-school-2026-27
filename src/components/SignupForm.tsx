@@ -100,7 +100,16 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
   }
 
   function focusFirstError(fieldErrors: FieldErrors) {
-    const order: FieldName[] = ['firstName', 'lastName', 'email', 'phone', 'dobYear']
+    // Reading order, opt-in last — it is the bottom of the form, and jumping past
+    // three empty text fields to the checkbox would hide what else is wrong.
+    const order: FieldName[] = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'dobYear',
+      'consentOptIn',
+    ]
     const first = order.find((key) => fieldErrors[key])
     if (!first) return
     const el = formRef.current?.querySelector<HTMLElement>(
@@ -305,12 +314,18 @@ export default function SignupForm({ cfg, vp, onResult }: Props) {
       </div>
 
       <div style={{ marginTop: 28, marginBottom: 24 }}>
-        {/* The only checkbox on the form, and optional by design — under CASL consent
-            must be freely given and cannot be a condition of signing up. */}
+        {/* The only checkbox on the form, and required: the guestlist is a marketing
+            list and a spot is only given to someone who agreed to hear from us.
+
+            Three things have to STAY true for that to be defensible under CASL, which
+            wants consent freely given: it ships unticked (no pre-tick, ever), the
+            label says plainly what is being consented to, and the emails carry a
+            working unsubscribe. Enforced server-side too — api/_lib/validate.ts. */}
         <Checkbox
           id="consentOptIn"
           checked={values.consentOptIn}
           onChange={(v) => set('consentOptIn', v)}
+          error={errors.consentOptIn}
         >
           {cfg.copy.consentLabel}
         </Checkbox>

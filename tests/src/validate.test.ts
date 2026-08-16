@@ -27,6 +27,7 @@ function values(overrides: Partial<SignupValues> = {}): SignupValues {
     dobYear: '2004',
     dobMonth: '4',
     dobDay: '12',
+    consentOptIn: true,
     ...overrides,
   }
 }
@@ -63,11 +64,12 @@ describe('validateSignup', () => {
     if (result.ok) expect(result.dob).toBe('2004-04-12')
   })
 
-  it('requires every field except the opt-in', () => {
+  it('requires every field on the form, the opt-in included', () => {
     const result = validateSignup(EMPTY_VALUES, OPTS)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(Object.keys(result.fieldErrors).sort()).toEqual([
+      'consentOptIn',
       'dobYear',
       'email',
       'firstName',
@@ -76,8 +78,12 @@ describe('validateSignup', () => {
     ])
   })
 
-  it('never requires the opt-in — CASL says consent has to be freely given', () => {
-    expect(validateSignup(values({ consentOptIn: false }), OPTS).ok).toBe(true)
+  it('will not let an otherwise perfect form through with the box unticked', () => {
+    const result = validateSignup(values({ consentOptIn: false }), OPTS)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    // The message has to say what to do — "Required" under a checkbox reads as a bug.
+    expect(result.fieldErrors.consentOptIn).toMatch(/tick/i)
     expect(validateSignup(values({ consentOptIn: true }), OPTS).ok).toBe(true)
   })
 
@@ -168,6 +174,7 @@ describe('twin-file drift', () => {
     ['international phone', { phone: '+44 20 7946 0958' }],
     ['impossible date', { dobYear: '2005', dobMonth: '2', dobDay: '29' }],
     ['leap day', { dobYear: '2004', dobMonth: '2', dobDay: '29' }],
+    ['unticked opt-in', { consentOptIn: false }],
   ]
 
   it.each(cases)('agrees on %s', (_label, overrides) => {
@@ -211,6 +218,7 @@ describe('twin-file drift', () => {
         dob: composeDob(underage),
         ageConfirmed: true,
         privacyAccepted: true,
+        consentOptIn: true,
       }).ok,
     ).toBe(true)
   })
