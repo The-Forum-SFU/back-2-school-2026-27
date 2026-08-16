@@ -314,10 +314,13 @@ export function EventInfo({ vp }: { vp: Viewport }) {
           means nothing to anyone who has not already seen the campaign, so it never
           appears without the line that says what it is.
         */}
+        {/* Heavier below desktop, where this sits on the hero scrim at a third of the
+            desktop size. index.html loads 500 and 700 — nothing else, so no other
+            weight can be used here without widening that request first. */}
         <div
           style={{
             fontFamily: FONT,
-            fontWeight: 500,
+            fontWeight: desktop ? 500 : 700,
             fontSize: desktop ? 38 : 24,
             lineHeight: '100%',
             textAlign: 'left',
@@ -328,19 +331,30 @@ export function EventInfo({ vp }: { vp: Viewport }) {
         >
           {EVENT.name}
         </div>
+        {/*
+          The weakest element on the page, and below desktop three of its properties
+          were working against it: 11px, dimmed to 0.8, and set in NEGATIVE tracking
+          while uppercase. All-caps has no ascenders or descenders to carry word shape,
+          so it leans entirely on letter separation — tightening it is the one change
+          that costs nothing and hurts most. Desktop is unchanged; it is bigger, and it
+          sits in the empty margin rather than on the photo.
+        */}
         <div
           style={{
             fontFamily: FONT,
             fontWeight: 500,
-            fontSize: desktop ? 13 : 11,
+            fontSize: desktop ? 13 : 12,
             lineHeight: '130%',
             textAlign: 'left',
-            letterSpacing: '-0.02em',
+            letterSpacing: desktop ? '-0.02em' : '0.02em',
             textTransform: 'uppercase',
             color: '#fff',
-            opacity: 0.8,
+            opacity: desktop ? 0.8 : 1,
             marginTop: desktop ? 8 : 5,
-            maxWidth: desktop ? 240 : 180,
+            // Widened with the type so the line still breaks in two. This also sets the
+            // inner block's width, and with it the axis the badge and name align on —
+            // see the shrink-wrap note above.
+            maxWidth: desktop ? 240 : 208,
           }}
         >
           {EVENT.tagline}
@@ -349,7 +363,7 @@ export function EventInfo({ vp }: { vp: Viewport }) {
       <div
         style={{
           fontFamily: FONT,
-          fontWeight: 500,
+          fontWeight: desktop ? 500 : 700,
           fontSize: desktop ? 80 : 60,
           lineHeight: '100%',
           textAlign: 'center',

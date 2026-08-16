@@ -52,7 +52,7 @@ export default function LandingShell({ bottom }: { bottom?: ReactNode }) {
           cursor: hasCursor ? 'none' : 'auto',
         }}
       >
-        <HeroCanvas isMobile={vp.isMobile} />
+        <HeroCanvas vp={vp} />
 
         <BlackPanel panelRef={panelRef} wrapRef={wrapRef} cols={cols} />
 
