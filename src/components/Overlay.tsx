@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
-import { EVENT, formatDoorStamp } from '../config/event'
+import { EVENT, formatDoorStamp, HERO_COPY } from '../config/event'
 import { scrollToSignup } from '../lib/scrollToSignup'
 import type { Viewport } from '../lib/viewport'
 import { ROUTES } from '../routes'
@@ -117,13 +117,18 @@ export function Caption({ vp }: { vp: Viewport }) {
       }}
     >
       {/*
-        Keep this SHORT. The caption sits on the left rail in an exclusion group, and
-        the hero artwork starts around 450px in — any line long enough to reach it
+        Keep EACH LINE short. The caption sits on the left rail in an exclusion group,
+        and the hero artwork starts around 450px in: any line long enough to reach it
         inverts against the bear instead of the white behind it, and the tail of the
-        sentence turns colour. The name and kicker take most of the budget, so the
-        flavour line that follows has to be the trimmed version.
+        sentence turns colour.
+
+        Two block-level lines rather than one run of text is what buys the headroom.
+        This used to be a single sentence carrying the name, the kicker and a flavour
+        line, which at ~82 characters was already past that 450px mark on one line and
+        relied on the wrap landing somewhere kind.
       */}
-      {EVENT.name}. {EVENT.tagline}. Everything 2001 forgot to leave behind.
+      <div>{HERO_COPY.headline}</div>
+      <div style={{ marginTop: 4 }}>{HERO_COPY.subline}</div>
     </motion.div>
   )
 }

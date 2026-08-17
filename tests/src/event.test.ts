@@ -6,6 +6,7 @@ import {
   EVENT,
   fill,
   formatDoorDate,
+  HERO_COPY,
   formatDoorStamp,
   formatDropDate,
   formatShortDate,
@@ -16,6 +17,7 @@ import {
   savedVersusTicket,
   type ListConfig,
 } from '../../src/config/event'
+import { PRIVACY_SECTIONS } from '../../src/config/privacy'
 
 /** Drops comments so a guard reads the code and not the prose explaining it. */
 function stripComments(src: string): string {
@@ -289,33 +291,66 @@ describe('copy compliance', () => {
   it('carries the form spec verbatim on the guestlist', () => {
     const c = GUESTLIST.copy
     expect(c.consentLabel).toBe(
-      'Opt in to email and SMS from The Forum. First access to presales, member pricing, and giveaways.',
+      'Opt in to email and SMS from The Forum to get first access to exclusive pre-sales, discounts and giveaways.',
     )
-    expect(c.venueShareNote).toBe(
-      'We share your name with our venue partner, Celebrities Nightclub, for guestlist check-in only.',
+    expect(c.consentFinePrint).toBe(
+      'Msg and data rates may apply, frequency varies. Reply STOP or use the unsubscribe link any time.',
     )
-    expect(`${c.privacyNotice} ${c.privacyLinkText}.`).toBe(
-      'By signing up you agree to our Privacy Policy.',
+    expect(
+      `${c.privacyNotice} ${c.privacyLinkText}. ${c.privacyNoticeAfter}`,
+    ).toBe(
+      'By signing up you agree to our Privacy Policy. We will contact you via email regarding important event information.',
     )
     expect(c.formHeading).toBe('Get on the list')
     expect(c.formSubheading).toBe('Enter the name you will give at the door.')
     expect(c.submitLabel).toBe('Claim my $5 spot')
-    expect(c.termsTitle).toBe('Before you submit')
+    expect(c.termsTitle).toBe('Please note')
     expect(c.termsLines).toEqual([
-      'This is an RSVP, not a ticket. Nothing is charged now.',
-      '$5 cash at the door if you are checked in before 10:30 PM. $15 after.',
-      'Check your email for your confirmation and door instructions.',
+      'This is not a ticket. It is an RSVP that grants you discounted access at the door before 10:30 PM for $5.',
     ])
+  })
+
+  it('distinguishes a repeat submission by headline only', () => {
+    const c = GUESTLIST.copy
+    expect(c.successTitle).toBe('You are on the list.')
+    // The headline still says "already", because someone filling the form twice is
+    // asking whether the first one worked.
+    expect(c.alreadyTitle).toBe('You are already on the list.')
+    // The body does not, because the next thing they need is their inbox either way.
+    expect(c.alreadyBody).toBe(c.successBody)
+    expect(c.successBody).toContain('Check your inbox')
+  })
+
+  it('splits the pitch from the logistics in the section header', () => {
+    const c = GUESTLIST.copy
+    // The subheading is the reason to come and carries no date, venue or door time.
+    expect(c.subheading).toContain(EVENT.tagline)
+    expect(c.subheading).not.toContain(EVENT.venue.name)
+    expect(c.subheading).not.toContain(EVENT.venue.doorsOpen)
+    // The details line is the opposite: scannable facts, no pitch.
+    expect(c.detailsLine).toBe(
+      `${formatDoorDate()}. ${EVENT.venue.name}. Doors ${EVENT.venue.doorsOpen}.`,
+    )
   })
 
   it('derives every price in the copy from EVENT.pricing', () => {
     // A literal would survive a fee change and quietly contradict the rest of the page.
     const c = GUESTLIST.copy
     expect(c.submitLabel).toContain(money(EVENT.pricing.doorEarlyCents))
-    expect(c.subheading).toContain(money(EVENT.pricing.ticketCents))
-    expect(c.subheading).toContain(EVENT.pricing.doorCutoff)
+    expect(c.termsLines?.[0]).toContain(money(EVENT.pricing.doorEarlyCents))
+    expect(c.termsLines?.[0]).toContain(EVENT.pricing.doorCutoff)
     expect(c.closedBody).toContain(money(EVENT.pricing.earlyBirdCents))
     expect(c.closedBody).toContain(String(EVENT.pricing.earlyBirdCount))
+  })
+
+  it('quotes the hero attendance figure from config, not from a literal', () => {
+    expect(HERO_COPY.headline).toBe(EVENT.tagline)
+    expect(HERO_COPY.subline).toContain(String(EVENT.socialProof.expectedAttendance))
+    // The forward-looking claim and the past-event figure are different numbers and
+    // must not be quietly swapped for one another.
+    expect(EVENT.socialProof.expectedAttendance).not.toBe(
+      EVENT.socialProof.pastAttendance,
+    )
   })
 
   it('gives the guestlist door instructions naming the exact door name', () => {
@@ -325,9 +360,28 @@ describe('copy compliance', () => {
     expect(lines.some((l) => l.includes(EVENT.pricing.doorCutoff))).toBe(true)
   })
 
-  it('adds the venue disclosure only where names are actually shared', () => {
-    expect(GUESTLIST.copy.venueShareNote).toBeTruthy()
-    expect(LISTS['general-onsale'].copy.venueShareNote).toBeUndefined()
+  it('no longer carries the venue disclosure on the form', () => {
+    // It moved to section 7 of the privacy policy, which the notice above the submit
+    // button links to. Asserted as absent rather than deleted quietly, because the
+    // disclosure still has to exist SOMEWHERE and this records where it went.
+    //
+    // The policy states the practice generically, for "the venue partner hosting that
+    // event", and does NOT name Celebrities: it is a company-wide document covering
+    // every venue. So this checks that the practice is disclosed, not that the venue is
+    // named, which is the thing the form used to do and no longer does anywhere.
+    expect('venueShareNote' in GUESTLIST.copy).toBe(false)
+    // Read from the exported data, not the file text: the source wraps these sentences
+    // across string concatenations, so a regex over the raw file matches nothing and
+    // would have made this guard pass for the wrong reason.
+    const policy = PRIVACY_SECTIONS.flatMap((s) =>
+      s.blocks.flatMap((b) => {
+        if (b.kind === 'p' || b.kind === 'h3') return [b.text]
+        if (b.kind === 'ul') return [...b.items]
+        return b.rows.flatMap((r) => [...r])
+      }),
+    ).join(' ')
+    expect(policy).toContain('door check-in only')
+    expect(policy).toContain('share your name and email address with the venue partner')
   })
 
   it('mirrors the database capacity without any component being able to show it', () => {

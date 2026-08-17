@@ -151,7 +151,12 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
         {cfg.copy.eyebrow && <p style={eyebrowStyle}>{cfg.copy.eyebrow}</p>}
         <h2 style={headingStyle(vp)}>{cfg.copy.heading}</h2>
         <p style={{ ...subStyle(vp), marginTop: 14 }}>{cfg.copy.subheading}</p>
-        <p style={{ ...mutedStyle, marginTop: 12 }}>{cfg.blurb}</p>
+        {/* The when and where, quiet under the pitch. This replaces `cfg.blurb` in
+            this slot: the blurb read "No ticketing fees. Pay at the door.", which the
+            price comparison directly below now states twice on its own. */}
+        {cfg.copy.detailsLine && (
+          <p style={{ ...mutedStyle, marginTop: 12 }}>{cfg.copy.detailsLine}</p>
+        )}
       </header>
 
       <PriceComparison vp={vp} />

@@ -32,6 +32,13 @@ export type SignupCopy = {
   // --- Section header, above the form ---
   heading: string
   subheading: string
+  /**
+   * Quiet line under the subheading carrying the when and where. Split out from
+   * `subheading`, which used to be a four-fact paragraph doing both jobs: the pitch
+   * wants to be read and the logistics want to be scanned, and one paragraph cannot be
+   * both. Rendered small and muted.
+   */
+  detailsLine?: string
   /** Small kicker over the heading. */
   eyebrow?: string
 
@@ -52,10 +59,17 @@ export type SignupCopy = {
   // --- Terminal states. `{firstName}`, `{name}` and `{email}` are filled in. ---
   successTitle: string
   successBody: string
-  /** "We just sent your confirmation to {email}." */
-  confirmationNote?: string
   /** "Entered your name wrong? …" */
   correctionNote?: string
+  /**
+   * The repeat-submission pair, shown when the server answers `already_registered`.
+   *
+   * The TITLE still says "already", because someone who fills the form twice is asking
+   * whether it worked the first time and the answer to that is the useful one. The BODY
+   * is deliberately the same string as `successBody`: whatever brought them back, the
+   * next thing they need is their inbox, and a body explaining that they had made a
+   * redundant submission answered a question nobody asked.
+   */
   alreadyTitle: string
   alreadyBody: string
   closedTitle: string
@@ -63,15 +77,22 @@ export type SignupCopy = {
 
   // --- Exact strings stored verbatim with each row. See submissions.consent_text. ---
   consentLabel: string
-  /** Disclosure under the opt-in. Guestlist lists only; omitted elsewhere. */
-  venueShareNote?: string
+  /**
+   * Small print under the opt-in: rates, frequency, and how to get out. Part of the
+   * consent record, not decoration, so SignupForm joins it onto `consentLabel` for
+   * `submissions.consent_text` rather than storing only the headline sentence.
+   */
+  consentFinePrint?: string
   /**
    * Passive notice above the submit button, NOT a checkbox — pressing submit is the
-   * act of agreement. Rendered as `{privacyNotice} <a>{privacyLinkText}</a>.`
+   * act of agreement. Rendered as
+   * `{privacyNotice} <a>{privacyLinkText}</a>. {privacyNoticeAfter}`
    */
   privacyNotice: string
   privacyLinkText: string
   privacyHref: string
+  /** Sentence after the privacy link. Omitted when a list has nothing to add. */
+  privacyNoticeAfter?: string
 }
 
 export type ListConfig = {
@@ -163,7 +184,7 @@ export const EVENT = {
     /** Regular ticket, face value before fees. */
     ticketCents: 2300,
     /** Regular ticket, all-in with fees. TODO: fee unconfirmed, roughly $8. */
-    ticketAllInCents: 3100,
+    ticketAllInCents: 3000,
     /** Early bird tickets, for the public page when it lands. */
     earlyBirdCents: 800,
     earlyBirdCount: 80,
@@ -175,6 +196,12 @@ export const EVENT = {
 
   socialProof: {
     pastAttendance: 700,
+    /**
+     * The figure the hero quotes. Forward-looking and deliberately NOT `pastAttendance`,
+     * which is what a previous event actually drew: "turn up with 800+" is a claim about
+     * the room on the night. Kept as a number so the two can never drift apart in copy.
+     */
+    expectedAttendance: 800,
     // TODO: sellout-speed stat, if the team wants one alongside the attendance figure.
     selloutSpeed: null as string | null,
   },
@@ -293,7 +320,20 @@ export function calendarUrl(): string {
 const P = EVENT.pricing
 const DOOR_EARLY = money(P.doorEarlyCents)
 const DOOR_LATE = money(P.doorLateCents)
-const TICKET = money(P.ticketCents)
+
+/**
+ * The landing hero, which belongs to the EVENT and not to any one list: `/` and the
+ * guestlist route render the same scroll experience, so this text is read by someone
+ * who may have arrived from anywhere and must not assume a list.
+ *
+ * Two separate lines rather than one string. The caption sits in an exclusion blending
+ * group on the left rail and the hero artwork starts around 450px in, so a single long
+ * line runs into the bear and inverts mid-sentence. See Caption in Overlay.tsx.
+ */
+export const HERO_COPY = {
+  headline: EVENT.tagline,
+  subline: `Turn up with ${EVENT.socialProof.expectedAttendance}+ students at Vancouver's favourite nightclub.`,
+}
 
 /**
  * Shared consent wording.
@@ -309,10 +349,16 @@ const TICKET = money(P.ticketCents)
  */
 const CONSENT_COPY = {
   consentLabel:
-    'Opt in to email and SMS from The Forum. First access to presales, member pricing, and giveaways.',
+    'Opt in to email and SMS from The Forum to get first access to exclusive pre-sales, ' +
+    'discounts and giveaways.',
+  consentFinePrint:
+    'Msg and data rates may apply, frequency varies. Reply STOP or use the unsubscribe ' +
+    'link any time.',
   privacyNotice: 'By signing up you agree to our',
   privacyLinkText: 'Privacy Policy',
   privacyHref: ROUTES.PRIVACY,
+  privacyNoticeAfter:
+    'We will contact you via email regarding important event information.',
 }
 
 /**
@@ -335,6 +381,16 @@ const FIELD_COPY = {
   emailNote: 'Please avoid using an @sfu.ca address.',
 }
 
+/**
+ * The confirmation subhead, shared by the first signup and a repeat one.
+ *
+ * One constant rather than the same sentence typed twice, so the two can never drift.
+ * Only the headline differs between those states; see the note on SignupCopy.
+ */
+const CONFIRMATION_BODY =
+  'Check your inbox for your confirmation email and instructions. Check spam and ' +
+  'promotions too if you do not see it.'
+
 export const LISTS: Record<TicketType, ListConfig> = {
   'presale-guestlist': {
     ticketType: 'presale-guestlist',
@@ -347,12 +403,15 @@ export const LISTS: Record<TicketType, ListConfig> = {
     minAge: 19,
     mode: 'signup',
     doorInstructions: {
-      title: 'On the night',
+      title: 'Important note',
+      // One paragraph rather than four bullets. Every fact here is a condition of
+      // getting in at the rate they were promised, and a bulleted list invites skimming
+      // exactly the line someone cannot afford to miss.
       lines: [
-        `Arrive by ${EVENT.venue.doorsOpen} when doors open. The line moves slowly after ten.`,
-        'Give the staff the exact name you entered: {name}.',
-        `Bring ${DOOR_EARLY} cash and ${EVENT.venue.idRequirement}.`,
-        `Check in before ${P.doorCutoff} for the ${DOOR_EARLY} rate. After that it is ${DOOR_LATE}.`,
+        `Arrive by ${EVENT.venue.doorsOpen} when doors open. Give the staff the exact name ` +
+          `you entered, {name}, and bring ${DOOR_EARLY} cash and ${EVENT.venue.idRequirement}. ` +
+          `You need to be checked in before ${P.doorCutoff} for the ${DOOR_EARLY} rate. If you ` +
+          `arrive after ${P.doorCutoff}, you will be charged a regular discounted rate at ${DOOR_LATE}.`,
       ],
     },
     nextStep: {
@@ -371,37 +430,35 @@ export const LISTS: Record<TicketType, ListConfig> = {
     copy: {
       eyebrow: 'Early access',
       heading: 'Discounted Guestlist',
+      // The pitch only. What used to be here was four facts in one paragraph, which
+      // meant the reason to come and the logistics of coming competed for the same
+      // sentence. The when and where moved to `detailsLine` below.
       subheading:
-        `Rewind, SFU's biggest back to school party. ${formatDoorDate()} at ${EVENT.venue.name}. ` +
-        `Tickets go on sale at ${TICKET} plus fees. Put your name on this list and you are in ` +
-        `for ${DOOR_EARLY} cash before ${P.doorCutoff}.`,
+        `Join us at ${EVENT.tagline}. This year, with a special throwback edition. We will be ` +
+        'playing your favourite songs throughout the last decades, where you will be able to ' +
+        'sing along!',
+      detailsLine: `${formatDoorDate()}. ${EVENT.venue.name}. Doors ${EVENT.venue.doorsOpen}.`,
 
       formHeading: 'Get on the list',
       formSubheading: 'Enter the name you will give at the door.',
       submitLabel: `Claim my ${DOOR_EARLY} spot`,
-      termsTitle: 'Before you submit',
+      termsTitle: 'Please note',
       termsLines: [
-        'This is an RSVP, not a ticket. Nothing is charged now.',
-        `${DOOR_EARLY} cash at the door if you are checked in before ${P.doorCutoff}. ${DOOR_LATE} after.`,
-        'Check your email for your confirmation and door instructions.',
+        `This is not a ticket. It is an RSVP that grants you discounted access at the door ` +
+          `before ${P.doorCutoff} for ${DOOR_EARLY}.`,
       ],
 
       successTitle: 'You are on the list.',
-      successBody: `{firstName}, your name is down for ${DOOR_EARLY} entry before ${P.doorCutoff}.`,
-      confirmationNote:
-        'We just sent your confirmation to {email}. Not in your inbox in five minutes? ' +
-        'Check spam or promotions.',
+      successBody: CONFIRMATION_BODY,
       correctionNote:
         'Entered your name wrong? Fill the form again with the correct name and we will use ' +
         'the most recent entry.',
+      // Different headline, same body. See the note on the type.
       alreadyTitle: 'You are already on the list.',
-      alreadyBody:
-        'No need to sign up twice. We have your name down, and your confirmation is already ' +
-        'in your inbox.',
+      alreadyBody: CONFIRMATION_BODY,
       closedTitle: 'The discounted guestlist is full',
       closedBody: `Tickets are the next best thing, and the first ${P.earlyBirdCount} are ${money(P.earlyBirdCents)}.`,
 
-      venueShareNote: `We share your name with our venue partner, ${EVENT.venue.name}, for guestlist check-in only.`,
       ...CONSENT_COPY,
       ...FIELD_COPY,
     },

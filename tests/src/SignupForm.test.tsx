@@ -97,26 +97,35 @@ describe('the form the build plan specifies', () => {
   it('states the privacy notice as text, not as something to tick', () => {
     renderForm()
     expect(screen.getByText(/By signing up you agree to our/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
-      'href',
-      '/privacy',
-    )
+    expect(
+      screen.getByText(/We will contact you via email regarding important event information/),
+    ).toBeInTheDocument()
+    // Two now: one in the consent small print, one in this notice. Both must resolve,
+    // and neither may drift from the route the policy actually lives at.
+    const links = screen.getAllByRole('link', { name: 'Privacy Policy' })
+    expect(links).toHaveLength(2)
+    for (const link of links) expect(link).toHaveAttribute('href', ROUTES.PRIVACY)
   })
 
-  it('discloses the venue name-sharing under the opt-in', () => {
+  it('puts the consent small print under the opt-in, with a way out', () => {
     renderForm()
-    expect(
-      screen.getByText(
-        /We share your name with our venue partner, Celebrities Nightclub, for guestlist check-in only\./,
-      ),
-    ).toBeInTheDocument()
+    // The rates, the frequency and the unsubscribe route are the CASL-relevant half of
+    // the opt-in, so they have to be on screen next to the box, not only in the policy.
+    expect(screen.getByText(/Msg and data rates may apply/)).toBeInTheDocument()
+    expect(screen.getByText(/Reply STOP or use the unsubscribe link/)).toBeInTheDocument()
+  })
+
+  it('no longer discloses venue name-sharing on the form', () => {
+    renderForm()
+    // Moved into the privacy policy, which the notice above the submit button links to.
+    expect(screen.queryByText(/We share your name with our venue partner/)).toBeNull()
   })
 
   it('shows the terms panel above the submit button', () => {
     renderForm()
-    expect(screen.getByText('Before you submit')).toBeInTheDocument()
-    expect(screen.getByText(/This is an RSVP, not a ticket/)).toBeInTheDocument()
-    expect(screen.getByText(/\$15 after\./)).toBeInTheDocument()
+    expect(screen.getByText('Please note')).toBeInTheDocument()
+    expect(screen.getByText(/This is not a ticket/)).toBeInTheDocument()
+    expect(screen.getByText(/discounted access at the door before 10:30 PM for \$5/)).toBeInTheDocument()
   })
 
   it('labels the button with the rate it is claiming', () => {
@@ -237,10 +246,14 @@ describe('submission', () => {
     expect(ticketType).toBe('presale-guestlist')
     expect(values.consentOptIn).toBe(true)
     expect(dob).toBe('2004-04-12')
-    expect(extras.consentText).toBe(CFG.copy.consentLabel)
+    // The small print is part of what was agreed to, not decoration, so the stored
+    // record carries it. Storing only the headline sentence would record the offer
+    // without the terms that make it lawful.
+    expect(extras.consentText).toContain(CFG.copy.consentLabel)
+    expect(extras.consentText).toContain(CFG.copy.consentFinePrint)
   })
 
-  it('records the venue disclosure alongside the privacy notice, verbatim', async () => {
+  it('records the privacy notice exactly as it was rendered', async () => {
     const user = userEvent.setup()
     renderForm()
     await fillValidForm(user)
@@ -248,8 +261,13 @@ describe('submission', () => {
 
     await waitFor(() => expect(submitSignup).toHaveBeenCalled())
     const extras = submitSignup.mock.calls[0][3]
-    expect(extras.privacyText).toContain('By signing up you agree to our Privacy Policy.')
-    expect(extras.privacyText).toContain('Celebrities Nightclub')
+    // Both sentences, because both are on screen above the button. The venue line that
+    // used to be appended here is gone with the disclosure itself.
+    expect(extras.privacyText).toBe(
+      'By signing up you agree to our Privacy Policy. ' +
+        'We will contact you via email regarding important event information.',
+    )
+    expect(extras.privacyText).not.toContain('Celebrities Nightclub')
   })
 
   it('lands on the confirmation page, carrying the name and email in router state', async () => {

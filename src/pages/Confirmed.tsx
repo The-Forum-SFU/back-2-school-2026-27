@@ -3,7 +3,7 @@ import { FONT } from '../assets'
 import PaperPage from '../components/PaperPage'
 import PriceComparison from '../components/PriceComparison'
 import { INK, MUTED, RULE } from '../components/form/Field'
-import { calendarUrl, EVENT, fill, formatDoorDate, LISTS, money } from '../config/event'
+import { calendarUrl, EVENT, fill, formatDoorDate, LISTS } from '../config/event'
 import { useNoIndex } from '../lib/useNoIndex'
 import { useViewport, type Viewport } from '../lib/viewport'
 import { ROUTES } from '../routes'
@@ -56,26 +56,30 @@ export default function Confirmed() {
   return (
     <PaperPage>
       <div style={{ maxWidth: 640 }}>
+        {/*
+          The headline still distinguishes a repeat submission: someone filling the form
+          a second time is asking whether the first one worked, and "already" answers
+          that. The BODY no longer does, because the next thing they need is their inbox
+          either way, and the old version spent a paragraph explaining that they had made
+          a redundant submission.
+        */}
         <h1 style={headingStyle(vp)}>
           {state?.isNew === false ? cfg.copy.alreadyTitle : cfg.copy.successTitle}
         </h1>
 
-        {state ? (
-          <p style={{ ...subStyle(vp), marginTop: 14 }}>
-            {fill(state.isNew ? cfg.copy.successBody : cfg.copy.alreadyBody, {
-              firstName: state.firstName,
-              name: fullName(state),
-              email: state.email,
-            })}
-          </p>
-        ) : (
-          /* No state: a refresh or a pasted link. Say the same thing without pretending
-             to know who is reading it. */
-          <p style={{ ...subStyle(vp), marginTop: 14 }}>
-            Your name is down for {money(EVENT.pricing.doorEarlyCents)} entry before{' '}
-            {EVENT.pricing.doorCutoff}.
-          </p>
-        )}
+        {/*
+          No separate no-state wording any more. This sentence names nobody, so a refresh
+          or a pasted link renders exactly the same correct line as a fresh submission,
+          and there is no second copy of it to keep in sync. The placeholders are still
+          filled so a future list can personalise this without touching the page.
+        */}
+        <p style={{ ...subStyle(vp), marginTop: 14 }}>
+          {fill(state?.isNew === false ? cfg.copy.alreadyBody : cfg.copy.successBody, {
+            firstName: state?.firstName ?? '',
+            name: state ? fullName(state) : '',
+            email: state?.email ?? '',
+          })}
+        </p>
 
         <PriceComparison vp={vp} variant="calm" />
 
@@ -111,13 +115,9 @@ export default function Confirmed() {
           </p>
         )}
 
-        {state?.isNew !== false && (
-          <p style={{ ...bodyStyle, marginTop: 28 }}>
-            {state
-              ? fill(cfg.copy.confirmationNote ?? '', { email: state.email })
-              : 'Check your email for your confirmation and door instructions. Not in your inbox in five minutes? Check spam or promotions.'}
-          </p>
-        )}
+        {/* The "check your inbox" note that used to sit here is gone: the subhead above
+            now says exactly that, and repeating it either side of the door panel made
+            the page look like it had lost its place. */}
 
         <a
           href={calendarUrl()}

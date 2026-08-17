@@ -67,15 +67,26 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
    */
   const eventIdRef = useRef<string>(`lead_${crypto.randomUUID()}`)
 
-  const consentText = cfg.copy.consentLabel
   /**
-   * Everything the person was told about their data, as one string. The venue
-   * disclosure is joined in rather than dropped: it is shown at the same moment and
-   * belongs in the same verbatim record.
+   * The consent record, as one string. The fine print is joined in rather than dropped:
+   * the rates, the frequency and the way out are shown at the same moment and are the
+   * part CASL actually cares about, so storing only the headline sentence would record
+   * the offer without the terms.
+   */
+  const consentText = [cfg.copy.consentLabel, cfg.copy.consentFinePrint]
+    .filter(Boolean)
+    .join(' ')
+  /**
+   * Everything the person was told about their data, as one string, matching what is
+   * rendered above the submit button word for word.
+   *
+   * The venue disclosure used to be joined on here too. It is gone from the form
+   * entirely now and lives in section 7 of the privacy policy, which this sentence
+   * links to, so the record still points at where that is disclosed.
    */
   const privacyText = [
     `${cfg.copy.privacyNotice} ${cfg.copy.privacyLinkText}.`,
-    cfg.copy.venueShareNote,
+    cfg.copy.privacyNoticeAfter,
   ]
     .filter(Boolean)
     .join(' ')
@@ -346,11 +357,20 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
           {cfg.copy.consentLabel}
         </Checkbox>
 
-        {/* Sits under the opt-in but is NOT conditional on it: sharing the name with
-            the venue is how check-in works, so everyone who signs up is told. */}
-        {cfg.copy.venueShareNote && (
-          <p style={{ ...fineStyle, marginTop: 12, paddingLeft: 26 }}>
-            {cfg.copy.venueShareNote}
+        {/* Indented to the checkbox label's text edge, so it reads as small print
+            belonging to the opt-in rather than as a new paragraph on the form. */}
+        {cfg.copy.consentFinePrint && (
+          <p style={{ ...fineStyle, marginTop: 10, paddingLeft: 26 }}>
+            {cfg.copy.consentFinePrint}{' '}
+            <a
+              href={cfg.copy.privacyHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: MUTED, textDecoration: 'underline' }}
+            >
+              {cfg.copy.privacyLinkText}
+            </a>
+            .
           </p>
         )}
       </div>
@@ -377,7 +397,7 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
         >
           {cfg.copy.privacyLinkText}
         </a>
-        .
+        .{cfg.copy.privacyNoticeAfter ? ` ${cfg.copy.privacyNoticeAfter}` : ''}
       </p>
 
       <button

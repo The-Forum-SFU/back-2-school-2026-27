@@ -30,27 +30,34 @@ function renderPage(state: unknown = STATE) {
 }
 
 describe('with the state the form hands over', () => {
-  it('confirms the rate and the cutoff by name', () => {
+  it('sends them to their inbox rather than restating the rate', () => {
     renderPage()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('You are on the list.')
-    expect(screen.getByText(/Jordan, your name is down for \$5 entry before 10:30 PM\./)).toBeInTheDocument()
+    expect(screen.getByText(/Check your inbox for your confirmation email/)).toBeInTheDocument()
+    expect(screen.getByText(/Check spam and promotions too/)).toBeInTheDocument()
   })
 
   it('prints the exact name to give at the door', () => {
     renderPage()
-    expect(screen.getByText(/Give the staff the exact name you entered: Jordan Nguyen\./)).toBeInTheDocument()
+    expect(screen.getByText(/Give the staff the exact name you entered, Jordan Nguyen,/)).toBeInTheDocument()
   })
 
-  it('gives the rest of the door instructions', () => {
+  it('gives the rest of the door instructions in one paragraph', () => {
     renderPage()
-    expect(screen.getByText('On the night')).toBeInTheDocument()
-    expect(screen.getByText(/Bring \$5 cash and two pieces of government ID\./)).toBeInTheDocument()
-    expect(screen.getByText(/Check in before 10:30 PM/)).toBeInTheDocument()
+    expect(screen.getByText('Important note')).toBeInTheDocument()
+    // One block now, not four bullets, so every fact is asserted on the same node.
+    const note = screen.getByText(/Give the staff the exact name you entered/)
+    expect(note).toHaveTextContent('Arrive by 9:30 PM when doors open.')
+    expect(note).toHaveTextContent('bring $5 cash and two pieces of government ID')
+    expect(note).toHaveTextContent('checked in before 10:30 PM for the $5 rate')
+    expect(note).toHaveTextContent('after 10:30 PM, you will be charged a regular discounted rate at $15')
   })
 
-  it('names the inbox the confirmation went to', () => {
+  it('says nothing about an email it cannot know was delivered', () => {
     renderPage()
-    expect(screen.getByText(/We just sent your confirmation to jordan@example\.com/)).toBeInTheDocument()
+    // The old page named the address back at them. The subhead points at the inbox
+    // without claiming anything about what is in it.
+    expect(screen.queryByText(/We just sent your confirmation/)).not.toBeInTheDocument()
   })
 
   it('links back to the form for a misspelled name', () => {
@@ -61,12 +68,14 @@ describe('with the state the form hands over', () => {
     )
   })
 
-  it('greets someone already on the list without re-confirming an email that was not sent', () => {
+  it('keeps the "already" headline for a repeat submission', () => {
     renderPage({ ...STATE, isNew: false })
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       'You are already on the list.',
     )
-    expect(screen.queryByText(/We just sent your confirmation/)).not.toBeInTheDocument()
+    // Headline only. The body is the same either way, because the next thing they need
+    // is their inbox whether or not this was the submission that put them on the list.
+    expect(screen.getByText(/Check your inbox for your confirmation email/)).toBeInTheDocument()
   })
 })
 
@@ -74,13 +83,15 @@ describe('without state, which is every refresh and pasted link', () => {
   it('still renders the page rather than a blank screen', () => {
     renderPage(null)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('You are on the list.')
-    expect(screen.getByText('On the night')).toBeInTheDocument()
+    expect(screen.getByText('Important note')).toBeInTheDocument()
+    // The subhead names nobody, so it is correct here without a separate no-state copy.
+    expect(screen.getByText(/Check your inbox for your confirmation email/)).toBeInTheDocument()
   })
 
   it('describes the name instead of printing an empty one', () => {
     renderPage(null)
-    expect(screen.getByText(/the exact name you entered: the name you entered\./)).toBeInTheDocument()
-    expect(screen.queryByText(/entered: \./)).not.toBeInTheDocument()
+    expect(screen.getByText(/the exact name you entered, the name you entered,/)).toBeInTheDocument()
+    expect(screen.queryByText(/entered, ,/)).not.toBeInTheDocument()
   })
 
   it('ignores a state object that is the wrong shape', () => {
