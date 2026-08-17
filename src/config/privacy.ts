@@ -416,10 +416,14 @@ export const PRIVACY_SECTIONS: readonly Section[] = [
         head: ['Provider', 'What it does', 'What it sees'],
         rows: [
           // Listed first because it is the primary store: a signup is written here by
-          // /api/signup before anything is sent to Brevo or Meta, and this row is the
-          // one that survives if either of those is never synced. Columns as of
-          // supabase/migrations/0001_presale.sql. Note ip_hash, not a raw address.
-          ['Supabase (Supabase, Inc.)', 'Our signup database. Every guestlist and list signup is written here first', 'The full signup record: first and last name, email, phone, date of birth, which list you joined, your consent choices with the wording you were shown and the time you agreed, the ad attribution that brought you, your browser user agent, and a hashed version of your IP address. We do not store the raw address'],
+          // /api/signup before anything reaches Brevo or Meta, and this row is the one
+          // that survives if neither ever syncs.
+          //
+          // Kept as broad as the rows beneath it on purpose. Section 3 is where the
+          // field-by-field detail belongs and already carries it; repeating the column
+          // list here would make one provider look like a special case and would need
+          // editing every time the schema moves.
+          ['Supabase', 'Database hosting for our signup and guestlist forms', 'Signup and consent records'],
           ['Brevo (Sendinblue SAS)', 'Email and SMS marketing platform', 'Contact record, consent status, email engagement'],
           ['Vercel', 'Website and landing page hosting', 'Server logs including IP address'],
           ['Google (Workspace, Forms, Sheets, Drive)', 'Our email, survey forms and internal records', 'Correspondence, survey responses, contact lists'],
