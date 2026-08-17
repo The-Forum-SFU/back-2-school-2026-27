@@ -450,9 +450,6 @@ export const LISTS: Record<TicketType, ListConfig> = {
 
       successTitle: 'You are on the list.',
       successBody: CONFIRMATION_BODY,
-      correctionNote:
-        'Entered your name wrong? Fill the form again with the correct name and we will use ' +
-        'the most recent entry.',
       // Different headline, same body. See the note on the type.
       alreadyTitle: 'You are already on the list.',
       alreadyBody: CONFIRMATION_BODY,

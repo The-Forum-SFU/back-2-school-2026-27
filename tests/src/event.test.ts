@@ -68,10 +68,10 @@ describe('money', () => {
 
 describe('percentOff', () => {
   it('measures against the all-in price, not the face value', () => {
-    // $5 against $31 all-in is 84% off. Against the $23 face value it would be 78%,
+    // $5 against $30 all-in is 83% off. Against the $23 face value it would be 78%,
     // which is the wrong number and the reason this is computed rather than written.
-    expect(percentOff(EVENT.pricing.doorEarlyCents)).toBe(84)
-    expect(percentOff(EVENT.pricing.doorLateCents)).toBe(52)
+    expect(percentOff(EVENT.pricing.doorEarlyCents)).toBe(83)
+    expect(percentOff(EVENT.pricing.doorLateCents)).toBe(50)
   })
 
   it('moves with the fee, which is the whole point of not baking it into a graphic', () => {
@@ -188,10 +188,10 @@ describe('resolveListPhase', () => {
 
 describe('savedVersusTicket', () => {
   it('measures against the all-in price, on the same anchor as percentOff', () => {
-    // $5 and $15 against $31 all-in. Against the $23 face value these would be $18 and
+    // $5 and $15 against $30 all-in. Against the $23 face value these would be $18 and
     // $8, which is the wrong number and the reason this is computed rather than typed.
-    expect(savedVersusTicket(EVENT.pricing.doorEarlyCents)).toBe(2600)
-    expect(savedVersusTicket(EVENT.pricing.doorLateCents)).toBe(1600)
+    expect(savedVersusTicket(EVENT.pricing.doorEarlyCents)).toBe(2500)
+    expect(savedVersusTicket(EVENT.pricing.doorLateCents)).toBe(1500)
   })
 
   it('reports no saving rather than a negative one', () => {

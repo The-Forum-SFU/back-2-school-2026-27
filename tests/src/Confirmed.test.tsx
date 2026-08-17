@@ -60,13 +60,6 @@ describe('with the state the form hands over', () => {
     expect(screen.queryByText(/We just sent your confirmation/)).not.toBeInTheDocument()
   })
 
-  it('links back to the form for a misspelled name', () => {
-    renderPage()
-    expect(screen.getByRole('link', { name: 'Back to the form' })).toHaveAttribute(
-      'href',
-      ROUTES.GUESTLIST,
-    )
-  })
 
   it('keeps the "already" headline for a repeat submission', () => {
     renderPage({ ...STATE, isNew: false })
