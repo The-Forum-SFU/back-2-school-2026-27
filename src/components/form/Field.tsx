@@ -27,6 +27,22 @@ export const RULE = 'rgba(0,0,0,0.25)'
  */
 export const FIELD_RULE = 'rgba(0,0,0,0.55)'
 export const ERROR = '#c81e1e'
+/**
+ * Lighter than RULE, for rules INSIDE a block that is already bounded by one.
+ * At 0.25 every internal divider carries the same weight as the block's own edges and
+ * the thing stops having a structure.
+ */
+export const HAIRLINE = 'rgba(0,0,0,0.16)'
+/**
+ * The sheet's own red margin rule, at full strength.
+ *
+ * `--margin-ink` in index.css prints that rule at 0.3 alpha; this is the same hue used
+ * as the one accent on the page. Deliberately NOT ERROR, which is a different red doing
+ * a different job: a saving is not a problem, and the two must not be confusable. Using
+ * the paper's red is what keeps the price block reading as part of the sheet instead of
+ * introducing a second palette.
+ */
+export const MARGIN_RED = '#c95858'
 
 export const labelStyle = {
   fontFamily: FONT,

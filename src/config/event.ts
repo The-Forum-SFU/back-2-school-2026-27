@@ -209,6 +209,21 @@ export function percentOff(cents: number): number {
 }
 
 /**
+ * What a door rate saves against the ALL-IN ticket price, in cents.
+ *
+ * Same anchor and same reasoning as percentOff, which it sits beside rather than
+ * replaces: the page shows the dollar figure because "$26" is more concrete than "84%"
+ * at these amounts, while percentOff stays the source for ad copy that wants the
+ * percentage. Both divide by the same unconfirmed fee, so neither may be hard-coded.
+ *
+ * Floored at zero so a rate above the ticket price reads as no saving rather than as a
+ * negative one.
+ */
+export function savedVersusTicket(cents: number): number {
+  return Math.max(0, EVENT.pricing.ticketAllInCents - cents)
+}
+
+/**
  * Month abbreviations for the hero stamp, written out rather than taken from
  * `toLocaleString({ month: 'short' })`.
  *
@@ -309,10 +324,15 @@ const CONSENT_COPY = {
  * the person is left with no record of the spot they claimed. This note is what stops
  * someone typing one in the first place, which is a much better outcome than the
  * error. Change the rule and change this line with it.
+ *
+ * It deliberately no longer explains WHY. The reason lives in SFU_EMAIL_ERROR, which is
+ * what someone sees if they type one anyway, and that is the moment the explanation is
+ * worth reading. Under the field, before anything is typed, the instruction is the only
+ * part that does any work: this hint sits on screen for every single person who fills
+ * the form, and the shorter it is the more likely it is actually read.
  */
 const FIELD_COPY = {
-  emailNote:
-    'Please avoid using an @sfu.ca address. School inboxes filter our emails.',
+  emailNote: 'Please avoid using an @sfu.ca address.',
 }
 
 export const LISTS: Record<TicketType, ListConfig> = {

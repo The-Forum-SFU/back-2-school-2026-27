@@ -13,8 +13,18 @@ import {
   money,
   percentOff,
   resolveListPhase,
+  savedVersusTicket,
   type ListConfig,
 } from '../../src/config/event'
+
+/** Drops comments so a guard reads the code and not the prose explaining it. */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+}
+
+function readSrc(path: string): string {
+  return readFileSync(join(process.cwd(), path), 'utf8')
+}
 
 /**
  * The config is where the build plan's rules actually live, so this file is half
@@ -174,6 +184,55 @@ describe('resolveListPhase', () => {
   })
 })
 
+describe('savedVersusTicket', () => {
+  it('measures against the all-in price, on the same anchor as percentOff', () => {
+    // $5 and $15 against $31 all-in. Against the $23 face value these would be $18 and
+    // $8, which is the wrong number and the reason this is computed rather than typed.
+    expect(savedVersusTicket(EVENT.pricing.doorEarlyCents)).toBe(2600)
+    expect(savedVersusTicket(EVENT.pricing.doorLateCents)).toBe(1600)
+  })
+
+  it('reports no saving rather than a negative one', () => {
+    expect(savedVersusTicket(EVENT.pricing.ticketAllInCents)).toBe(0)
+    expect(savedVersusTicket(EVENT.pricing.ticketAllInCents + 5000)).toBe(0)
+  })
+
+  it('moves with the fee, so nothing downstream can go stale', () => {
+    // The whole point of the helper. If the unconfirmed TicketWeb fee changes, every
+    // figure on the comparison block has to change with it.
+    const before = savedVersusTicket(500)
+    expect(before).toBe(EVENT.pricing.ticketAllInCents - 500)
+  })
+})
+
+describe('the price comparison block', () => {
+  const src = () => stripComments(readSrc('src/components/PriceComparison.tsx'))
+
+  it('hard-codes no price, percentage or saving', () => {
+    // "Every figure is derived from EVENT.pricing" is the file's own rule, and the one
+    // most likely to be broken by someone matching a mockup that had real numbers in
+    // it. A literal survives a fee change; a derived one does not.
+    //
+    // Scoped to string and template literals, because the styles are full of legitimate
+    // percentages: lineHeight '135%' is not a discount. `${money(...)}` is safe from the
+    // dollar check too, since the `$` there is followed by a brace and not a digit.
+    // Double-quoted strings are in the list because JSX attributes use them, and a
+    // label is exactly where a number copied off a mockup would land.
+    const literals = (src().match(/'[^']*'|"[^"]*"|`[^`]*`/g) ?? []).join(' ')
+    expect(literals).not.toMatch(/\$\d/)
+    expect(literals).not.toMatch(/\d+\s*%\s*(off|discount)/i)
+  })
+
+  it('uses only the two font weights index.html actually loads', () => {
+    // Inter Tight ships here at 500 and 700 only. A 600 renders as one of them without
+    // warning, which is how a design drifts silently.
+    for (const weight of src().match(/fontWeight:\s*(\d+)/g) ?? []) {
+      expect(['fontWeight: 500', 'fontWeight: 700']).toContain(weight)
+    }
+    expect(readSrc('index.html')).toContain('wght@500;700')
+  })
+})
+
 describe('copy compliance', () => {
   it('uses no em dashes anywhere in user-facing copy', () => {
     for (const [path, text] of allCopy()) {
@@ -201,11 +260,8 @@ describe('copy compliance', () => {
     // Guards the guard: a bad path list would make this pass by scanning nothing.
     expect(files.length).toBeGreaterThan(10)
 
-    const stripComments = (src: string) =>
-      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
-
     for (const file of files) {
-      const code = stripComments(readFileSync(join(process.cwd(), file), 'utf8'))
+      const code = stripComments(readSrc(file))
       code.split('\n').forEach((line, i) => {
         expect(line, `${file}:${i + 1}: ${line.trim()}`).not.toMatch(/—/)
       })

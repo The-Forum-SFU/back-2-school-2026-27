@@ -85,9 +85,10 @@ describe('the form the build plan specifies', () => {
 
   it('warns off SFU addresses under the email field, before anything is typed', () => {
     renderForm()
-    const note = screen.getByText(
-      'Please avoid using an @sfu.ca address. School inboxes filter our emails.',
-    )
+    // Read from config rather than repeated here: this test is about the note being
+    // present and wired to the input, not about its exact wording. The wording that IS
+    // a spec is checked in event.test.ts.
+    const note = screen.getByText(CFG.copy.emailNote)
     expect(note).toBeInTheDocument()
     // Wired to the input, not just floating near it.
     expect(screen.getByLabelText('Email').getAttribute('aria-describedby')).toContain(note.id)
@@ -187,7 +188,7 @@ describe('validation', () => {
     expect(submitSignup).not.toHaveBeenCalled()
     expect(screen.getByText(/miss your confirmation/)).toBeInTheDocument()
     // The advice that would have prevented this does not vanish when it is needed most.
-    expect(screen.getByText(/School inboxes filter our emails/)).toBeInTheDocument()
+    expect(screen.getByText(CFG.copy.emailNote)).toBeInTheDocument()
     expect(document.activeElement).toBe(screen.getByLabelText('Email'))
   })
 
