@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react'
 import BlackPanel from './BlackPanel'
 import CustomCursor from './CustomCursor'
+import DropCountdown from './DropCountdown'
 import HeroCanvas from './HeroCanvas'
 import { Caption, EventInfo, Footer, HeaderNav, LogoMark, ScrollCue } from './Overlay'
 import { columnsFor, useViewport } from '../lib/viewport'
@@ -65,8 +66,15 @@ export default function LandingShell({ bottom }: { bottom?: ReactNode }) {
         <LogoMark vp={vp} />
         <HeaderNav vp={vp} hasBottom={hasBottom} />
         <Caption vp={vp} />
-        {/* Nothing to jump to on a route with no bottom section. */}
-        {hasBottom && <ScrollCue vp={vp} />}
+        {/*
+          One rail slot, two occupants, decided by whether this route has a form.
+
+          With one, the cue is the right thing there: it jumps straight to it. Without
+          one there is nothing to jump to, which is why this position used to be empty
+          on `/` — so the landing page gives the next real date instead and counts down
+          to it. Never both: they render in the same place.
+        */}
+        {hasBottom ? <ScrollCue vp={vp} /> : <DropCountdown vp={vp} />}
         <EventInfo vp={vp} />
         <Footer vp={vp} />
 

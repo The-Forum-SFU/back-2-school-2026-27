@@ -25,10 +25,11 @@ const FEATHER = 170
  * Where the image starts on mobile, measured from the top of the viewport. Everything
  * above it is the white band the logo, caption and ScrollCue sit in.
  *
- * Sized against the tallest thing in that band, which is the ScrollCue: it starts at
- * 174 (Overlay.tsx) and the pill runs ~45px, so anything under ~240 puts the button's
- * bottom edge flush against the crop. The extra room here is that clearance — change
- * the cue's type or padding and this number has to move with it.
+ * Sized against the tallest thing in that band, which is whatever fills the hero rail
+ * slot: it starts at 174 (heroRailSlot in Overlay.tsx) and runs ~45px as the ScrollCue
+ * pill, ~50px as the DropCountdown, so anything under ~240 puts its bottom edge flush
+ * against the crop. The extra room here is that clearance — change either occupant's
+ * type or padding and this number has to move with it.
  */
 const MOBILE_TOP = 244
 

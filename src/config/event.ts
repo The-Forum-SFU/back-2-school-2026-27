@@ -207,6 +207,23 @@ export const EVENT = {
   },
 
   /**
+   * The instant regular tickets go on sale. ISO with an EXPLICIT offset, for the usual
+   * reason and one extra: this drives the live countdown on the landing hero, so an
+   * hour of drift is not a subtle bug, it is visible on screen.
+   *
+   * SINGLE SOURCE OF TRUTH for the drop. `general-onsale.opensAt` and the presale
+   * panel's `ticketDrop.date` both read from it below, so the clock ticking on the hero
+   * can never disagree with the date printed on the closed panel.
+   *
+   * TODO: the TIME is unconfirmed — the build plan writes it as "xxPM", which is why
+   * `ticketDrop.time` is still null and no time is printed anywhere. Midnight is what
+   * general-onsale.opensAt has said all along, so the countdown inherits that rather
+   * than inventing a second guess. Set the real hour here once it is confirmed and
+   * everything downstream follows.
+   */
+  ticketDropAt: '2026-08-24T00:00:00-07:00',
+
+  /**
    * The [ TICKETS ] control in the landing-page header.
    * While `enabled` is false it scrolls to the signup section instead of linking out,
    * so there is never a dead link. Flip on Aug 24 when General On-Sale opens.
@@ -333,6 +350,16 @@ const DOOR_LATE = money(P.doorLateCents)
 export const HERO_COPY = {
   headline: EVENT.tagline,
   subline: `Turn up with ${EVENT.socialProof.expectedAttendance}+ students at Vancouver's favourite nightclub.`,
+  /**
+   * Label over the hero countdown, on the routes that have no form to send anyone to.
+   *
+   * "Tickets", not "regular tickets": the first 80 through the door on drop day are the
+   * early birds, so a countdown promising regular tickets would be counting down to a
+   * price most of the people watching it will not pay. This also matches the wording
+   * RsvpClosed already uses on the presale panel ("Tickets drop August 24th"), which is
+   * the other place the same moment is named.
+   */
+  countdownLabel: 'Tickets drop in',
 }
 
 /**
@@ -422,7 +449,10 @@ export const LISTS: Record<TicketType, ListConfig> = {
       label: 'Get tickets',
     },
     ticketDrop: {
-      date: '2026-08-24',
+      // Date half of EVENT.ticketDropAt, so this panel and the hero countdown name the
+      // same day by construction. The offset is Pacific and the time is midnight, so
+      // slicing the ISO string is exact here — no timezone arithmetic to get wrong.
+      date: EVENT.ticketDropAt.slice(0, 10),
       // TODO: drop time unconfirmed ("xxPM"). Null omits it rather than printing a placeholder.
       time: null,
       label: 'Wave 1',
@@ -493,7 +523,9 @@ export const LISTS: Record<TicketType, ListConfig> = {
     label: 'General On-Sale',
     blurb: 'Standard tickets through TicketWeb.',
     capacity: null,
-    opensAt: '2026-08-24T00:00:00-07:00',
+    // Same instant the hero counts down to, by construction. Still mirrors
+    // ticket_lists.opens_at — the value is unchanged, only where it is written.
+    opensAt: EVENT.ticketDropAt,
     closesAt: '2026-09-20T23:59:59-07:00',
     priceCents: 0,
     minAge: 19,

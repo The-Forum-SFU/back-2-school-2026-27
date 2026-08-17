@@ -205,10 +205,34 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
 }
 
 /**
+ * The one slot on the hero's left rail, below the Caption, that carries a route's
+ * main thing to look at.
+ *
+ * Shared rather than written twice because two different components occupy it and
+ * only ever one at a time: ScrollCue on a route with a form below it, DropCountdown
+ * on a route without. They have to land in exactly the same place, and the mobile
+ * clearance below depends on it — HeroCanvas.MOBILE_TOP crops the artwork at 244 and
+ * is sized against whatever sits here, so a taller occupant means moving that number
+ * too. Anything placed here should stay under about 60px tall.
+ *
+ * Centred on mobile, where the occupant sits alone in the white band above the hero
+ * rather than on a rail with anything to align to.
+ */
+export function heroRailSlot(vp: Viewport) {
+  return {
+    ...overlayBase,
+    ...(vp.isMobile
+      ? { left: 0, right: 0, display: 'flex', justifyContent: 'center' }
+      : { left: 32 }),
+    top: vp.isDesktop ? 300 : vp.isTablet ? 236 : 174,
+  }
+}
+
+/**
  * Hero affordance that skips the scroll experience and lands on the form.
  *
- * Sits below the Caption on the same left rail, and inherits the exclusion blending
- * so it reads correctly over both the light hero and the black panel.
+ * Sits in the rail slot above, and inherits the exclusion blending so it reads
+ * correctly over both the light hero and the black panel.
  *
  * The one control on the hero drawn as an actual button. It is the only thing here we
  * want pressed, and as 15px bracketed text it sat in the same register as the caption
@@ -224,19 +248,7 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
  */
 export function ScrollCue({ vp }: { vp: Viewport }) {
   return (
-    <motion.div
-      {...riseIn(0.45)}
-      style={{
-        ...overlayBase,
-        // Centred on mobile, where the button sits alone in the white band above the
-        // hero rather than on a rail with anything to align to. Everywhere else it
-        // stays on the left rail under the Caption.
-        ...(vp.isMobile
-          ? { left: 0, right: 0, display: 'flex', justifyContent: 'center' }
-          : { left: 32 }),
-        top: vp.isDesktop ? 300 : vp.isTablet ? 236 : 174,
-      }}
-    >
+    <motion.div {...riseIn(0.45)} style={heroRailSlot(vp)}>
       <button
         type="button"
         onClick={scrollToSignup}
