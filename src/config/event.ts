@@ -148,7 +148,7 @@ export const EVENT = {
    */
   calendar: {
     startLocal: '21:30',
-    endLocal: '02:00',
+    endLocal: '02:30',
   },
 
   /**

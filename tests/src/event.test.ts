@@ -145,7 +145,7 @@ describe('calendarUrl', () => {
   })
 
   it('starts at the door time and ends on the following day', () => {
-    expect(params.get('dates')).toBe('20260920T213000/20260921T020000')
+    expect(params.get('dates')).toBe('20260920T213000/20260921T023000')
   })
 
   it('passes the timezone rather than converting to UTC by hand', () => {
