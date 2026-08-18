@@ -44,6 +44,22 @@ export const HAIRLINE = 'rgba(0,0,0,0.16)'
  */
 export const MARGIN_RED = '#c95858'
 
+/**
+ * The accent on the price comparison, and the only place a second red is allowed.
+ *
+ * MARGIN_RED is the sheet's own hue and stays the right choice for a line of red TEXT
+ * on paper. It is the wrong choice for a filled swatch: white on #c95858 measures about
+ * 4.2:1, which fails AA for the 12px to 14px bold label that sits inside the savings
+ * pill, and lightening the text is not an option when the text is already white. This
+ * is the same red family taken to full saturation, where white clears 5.7:1 and the
+ * pill can carry its own weight.
+ *
+ * Still not ERROR, for the reason MARGIN_RED gives: a saving is not a problem, and the
+ * two reds must not be confusable. Use this ONLY for the savings pill and the door
+ * cutoff time. A third place would make it decoration rather than an accent.
+ */
+export const ACCENT_RED = '#CC0633'
+
 export const labelStyle = {
   fontFamily: FONT,
   fontWeight: 500,
