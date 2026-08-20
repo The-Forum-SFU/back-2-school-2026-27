@@ -22,9 +22,10 @@ import type { ConfirmedState } from '../pages/Confirmed'
  * unchanged — everything list-specific (labels, copy, ticket type) comes from config.
  *
  * Field order is fixed by the build plan: first name, last name, email, phone,
- * birthdate, then the opt-in. The opt-in is the ONLY checkbox. What used to be an age
- * checkbox is now the birthdate, and what used to be a privacy checkbox is the passive
- * notice above the submit button — see src/lib/signupApi.ts for how both are recorded.
+ * birthdate, then the opt-in. The opt-in is the ONLY checkbox, and it is OPTIONAL. What
+ * used to be an age checkbox is now the birthdate, and what used to be a privacy checkbox
+ * is the passive notice under the submit button — see src/lib/signupApi.ts for how both
+ * are recorded.
  *
  * Not a prop: any kind of `extraFields?: ReactNode`. Arbitrary JSX can't be
  * serialised into the request, so a future table-service "party size" passed that way
@@ -123,16 +124,9 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
   }
 
   function focusFirstError(fieldErrors: FieldErrors) {
-    // Reading order, opt-in last — it is the bottom of the form, and jumping past
-    // three empty text fields to the checkbox would hide what else is wrong.
-    const order: FieldName[] = [
-      'firstName',
-      'lastName',
-      'email',
-      'phone',
-      'dobYear',
-      'consentOptIn',
-    ]
+    // Reading order. `consentOptIn` is not in the list because it is optional and can no
+    // longer produce an error; leaving it here would be a focus target that never fires.
+    const order: FieldName[] = ['firstName', 'lastName', 'email', 'phone', 'dobYear']
     const first = order.find((key) => fieldErrors[key])
     if (!first) return
     const el = formRef.current?.querySelector<HTMLElement>(
@@ -157,6 +151,9 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
       lastName: values.lastName.trim(),
       email: values.email.trim(),
       isNew,
+      // Which list this was. Without it /confirmed reads the guestlist config for every
+      // submission and tells a mailing-list signup to bring cash to the door.
+      ticketType: cfg.ticketType,
     }
     navigate(ROUTES.CONFIRMED, { state })
   }
@@ -341,13 +338,15 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
       </div>
 
       <div style={{ marginTop: 28, marginBottom: 24 }}>
-        {/* The only checkbox on the form, and required: the guestlist is a marketing
-            list and a spot is only given to someone who agreed to hear from us.
+        {/* The only checkbox on the form, and OPTIONAL. Submitting with it unticked is a
+            valid submission that records a declined opt-in, not an error.
 
-            Three things have to STAY true for that to be defensible under CASL, which
-            wants consent freely given: it ships unticked (no pre-tick, ever), the
-            label says plainly what is being consented to, and the emails carry a
-            working unsubscribe. Enforced server-side too — api/_lib/validate.ts. */}
+            Two things still have to stay true, and they are what make the recorded
+            consent worth anything under CASL: it ships unticked, always, because a
+            pre-ticked box records agreement nobody gave, and the label says in plain
+            words what is being agreed to. Both halves of the check are gone now, here and
+            in api/_lib/validate.ts, so `error` below is only ever undefined. It is left
+            wired so the field behaves like every other one if that changes again. */}
         <Checkbox
           id="consentOptIn"
           checked={values.consentOptIn}
@@ -385,21 +384,6 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
         </p>
       )}
 
-      <p style={{ ...fineStyle, marginBottom: 16 }}>
-        {cfg.copy.privacyNotice}{' '}
-        {/* New tab, not a router link: an in-app navigation would unmount this form
-            and silently destroy everything the user has typed. */}
-        <a
-          href={cfg.copy.privacyHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: INK, textDecoration: 'underline' }}
-        >
-          {cfg.copy.privacyLinkText}
-        </a>
-        .{cfg.copy.privacyNoticeAfter ? ` ${cfg.copy.privacyNoticeAfter}` : ''}
-      </p>
-
       <button
         type="submit"
         disabled={submitting}
@@ -421,6 +405,31 @@ export default function SignupForm({ cfg, vp, onResult, onDirty }: Props) {
       >
         {submitting ? 'Sending…' : cfg.copy.submitLabel}
       </button>
+
+      {/*
+        UNDER the button, not above it.
+
+        The sentence is the disclosure that pressing the button agrees to, so it wants to
+        be the last thing read before the press, and above a full-width mobile button it
+        was separated from it by 56px of tap target. Directly beneath, it reads as the
+        button's own small print. It is still inside the form and still on screen at the
+        moment of submission, which is what makes `privacyAccepted: true` an honest claim
+        about what the person saw. See the note in src/lib/signupApi.ts.
+      */}
+      <p style={{ ...fineStyle, marginTop: 16 }}>
+        {cfg.copy.privacyNotice}{' '}
+        {/* New tab, not a router link: an in-app navigation would unmount this form
+            and silently destroy everything the user has typed. */}
+        <a
+          href={cfg.copy.privacyHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: INK, textDecoration: 'underline' }}
+        >
+          {cfg.copy.privacyLinkText}
+        </a>
+        .{cfg.copy.privacyNoticeAfter ? ` ${cfg.copy.privacyNoticeAfter}` : ''}
+      </p>
     </form>
   )
 }

@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import type { ReactNode } from 'react'
 import { FONT, LOGO_BEAR, LOGO_WORDMARK } from '../assets'
 import { EVENT, formatDoorStamp, HERO_COPY } from '../config/event'
 import { scrollToSignup } from '../lib/scrollToSignup'
@@ -99,15 +100,33 @@ export function LogoMark({ vp }: { vp: Viewport }) {
   )
 }
 
+/**
+ * The plain wrapper is what the scroll engine fades, and it has to be plain.
+ *
+ * The engine writes `style.opacity` on `#hero-caption` to take this off screen during the
+ * outro, and the element inside ALREADY animates opacity through Motion on entry. Writing
+ * to a property Motion owns is how you get one of them silently winning. So the entry
+ * animation stays on the inner element and the scroll-driven fade gets its own.
+ *
+ * `mixBlendMode` moves up here with it. It has to sit on the outermost element or the
+ * blend is confined to a stacking context that never sees the page backdrop, which is the
+ * trap documented in the README. Blending applies to the whole subtree as a group, so the
+ * text inside still inverts correctly.
+ */
 export function Caption({ vp }: { vp: Viewport }) {
   return (
-    <motion.div
-      {...riseIn(0.3)}
+    <div
+      id="hero-caption"
       style={{
         ...overlayBase,
         left: vp.isMobile ? 16 : 32,
         top: vp.isDesktop ? 244 : vp.isTablet ? 180 : 118,
         width: vp.isDesktop ? 692 : vp.isTablet ? 'calc(50vw - 48px)' : 'calc(100vw - 32px)',
+      }}
+    >
+    <motion.div
+      {...riseIn(0.3)}
+      style={{
         fontFamily: FONT,
         fontWeight: 500,
         fontSize: 12,
@@ -130,6 +149,7 @@ export function Caption({ vp }: { vp: Viewport }) {
       <div>{HERO_COPY.headline}</div>
       <div style={{ marginTop: 4 }}>{HERO_COPY.subline}</div>
     </motion.div>
+    </div>
   )
 }
 
@@ -140,17 +160,40 @@ export function Caption({ vp }: { vp: Viewport }) {
  * `overlayBase` disables pointer events for every layer, so an interactive element
  * re-enables them on itself only.
  *
- * Three states, in priority order: an external [ TICKETS ] link once General On-Sale
- * opens, an [ RSVP ] jump to the signup section on a route that has one, and otherwise
- * plain inert text — a route with no bottom section has nowhere to send anyone, and a
- * button that silently does nothing is worse than a label.
+ * Three states. What it SAYS is decided by whether tickets are on sale; what it DOES is
+ * decided by whether this route has a section below:
+ *
+ *   has a section     scrolls to it, labelled [ TICKETS ] when selling, [ RSVP ] before
+ *   selling, no section   links out to TicketWeb
+ *   neither           plain inert text, because a button that silently does nothing is
+ *                     worse than a label
+ *
+ * Splitting those two questions is what fixed `/tickets`. It used to link out the moment
+ * tickets were live, which on the one page that has the checkout embedded in it meant the
+ * header sent people away from the thing they were standing on. The external escape hatch
+ * still exists and belongs next to the frame that might fail, not in the header.
+ *
+ * `ticketsLive` is passed in rather than read here, and the distinction it draws matters:
+ * the TicketWeb URL went into config days before the sale opened, so a check for the URL
+ * alone put a live [ TICKETS ] link on the header of a page counting down to the drop.
+ * Following it landed on a real TicketWeb page selling nothing. The shell computes this
+ * from the same live clock that swaps the section below, so the header and the section
+ * can never disagree about whether tickets exist.
  *
  * All three stay bracketed text. The brackets ARE the affordance in this header, and
  * the hero's one real button is the cue on the left rail — a second boxed control up
  * here would split the emphasis rather than add to it. Bigger type is the whole change.
  */
-export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean }) {
-  const external = EVENT.tickets.enabled && EVENT.tickets.url
+export function HeaderNav({
+  vp,
+  hasBottom,
+  ticketsLive,
+}: {
+  vp: Viewport
+  hasBottom: boolean
+  ticketsLive: boolean
+}) {
+  const external = ticketsLive && EVENT.tickets.url && !hasBottom
 
   const textStyle = {
     fontFamily: FONT,
@@ -187,13 +230,13 @@ export function HeaderNav({ vp, hasBottom }: { vp: Viewport; hasBottom: boolean 
         </a>
       ) : hasBottom ? (
         /*
-          "RSVP", not "TICKETS". Every route that reaches this branch sends you to a
-          list form where nothing is charged and no ticket is issued, and the copy in
-          that form already says so — a header that promises tickets and delivers a
-          signup is the mismatch people bounce on.
+          The label follows what is actually down there. "RSVP" on a route whose section is
+          a list form, where nothing is charged and no ticket is issued: a header that
+          promises tickets and delivers a signup is the mismatch people bounce on. The same
+          scroll reads "TICKETS" on the route whose section is the checkout.
         */
         <button type="button" onClick={scrollToSignup} style={textStyle}>
-          [ RSVP ]
+          {ticketsLive ? '[ TICKETS ]' : '[ RSVP ]'}
         </button>
       ) : (
         <span style={{ ...textStyle, cursor: 'default', pointerEvents: 'none' }}>
@@ -229,6 +272,74 @@ export function heroRailSlot(vp: Viewport) {
 }
 
 /**
+ * The rail slot as an element, so both occupants land in the same DOM shape.
+ *
+ * Exists for the same reason as the wrapper on Caption: the scroll engine fades
+ * `#hero-rail` out across the outro, and it cannot do that on an element Motion is
+ * already animating the opacity of. The wrapper is plain and carries the position and
+ * the blend; the occupant animates itself inside it.
+ *
+ * Fading out at all is a decision worth stating. The countdown and the caption are the
+ * HERO's copy, and the outro is four viewports past it: leaving them on screen there kept
+ * a clock and a tagline sitting over the key art, and there was no room for the artwork
+ * with them in place. The [ RSVP ] control in the header does not fade, so the affordance
+ * survives the handoff even though this does.
+ */
+export function HeroRail({ vp, children }: { vp: Viewport; children: ReactNode }) {
+  return (
+    <div id="hero-rail" style={heroRailSlot(vp)}>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * The pill on the hero rail, as one style rather than three copies of it.
+ *
+ * Three controls wear it and only ever one at a time: the ScrollCue below, the RSVP
+ * under the countdown, and the GET TICKETS link the countdown turns into after the drop.
+ * They have to be the same object, or the same position on the same rail changes size
+ * depending on the date.
+ *
+ * Outlined, never filled. The whole overlay blends with `exclusion`, so a solid fill
+ * inverts as a slab and reads as a hole punched in the artwork, while an outline inverts
+ * as a hairline and keeps the hero visible through the button. `lineHeight: 1` is what
+ * makes the padding symmetric; the font's own line box would otherwise sit the label low.
+ *
+ * `small` is the compact variant, for when the pill is stacked UNDER something rather
+ * than sitting on the rail alone. Mobile is the constraint: HeroCanvas crops the artwork
+ * at MOBILE_TOP and everything in this slot has to clear it, so the countdown plus a
+ * full-size pill would run into the bear. See the note on MOBILE_TOP in HeroCanvas.
+ */
+export function railPillStyle(vp: Viewport, small = false) {
+  const desktop = vp.isDesktop
+  return {
+    display: 'inline-block',
+    fontFamily: FONT,
+    fontWeight: 500 as const,
+    fontSize: desktop ? (small ? 16 : 19) : small ? 13 : 16,
+    lineHeight: 1,
+    letterSpacing: '-0.02em',
+    textTransform: 'uppercase' as const,
+    color: '#fff',
+    background: 'none',
+    border: `${desktop ? 2 : 1.5}px solid #fff`,
+    borderRadius: 999,
+    padding: desktop
+      ? small
+        ? '13px 26px'
+        : '16px 32px'
+      : small
+        ? '10px 20px'
+        : '13px 24px',
+    cursor: 'pointer',
+    pointerEvents: 'auto' as const,
+    whiteSpace: 'nowrap' as const,
+    textDecoration: 'none',
+  }
+}
+
+/**
  * Hero affordance that skips the scroll experience and lands on the form.
  *
  * Sits in the rail slot above, and inherits the exclusion blending so it reads
@@ -239,39 +350,16 @@ export function heroRailSlot(vp: Viewport) {
  * above it — indistinguishable from the copy it was competing with. The pill replaces
  * the brackets rather than joining them: an outline around a bracketed label is the
  * same enclosure drawn twice.
- *
- * Outlined, not filled. The whole overlay blends with `exclusion`, so a solid fill
- * inverts as a slab and reads as a hole punched in the artwork, while an outline
- * inverts as a hairline and keeps the hero visible through the button. `lineHeight: 1`
- * is what makes the padding symmetric — the font's own line box would otherwise sit
- * the label low in the pill.
  */
 export function ScrollCue({ vp }: { vp: Viewport }) {
   return (
-    <motion.div {...riseIn(0.45)} style={heroRailSlot(vp)}>
-      <button
-        type="button"
-        onClick={scrollToSignup}
-        style={{
-          fontFamily: FONT,
-          fontWeight: 500,
-          fontSize: vp.isDesktop ? 19 : 16,
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          textTransform: 'uppercase',
-          color: '#fff',
-          background: 'none',
-          border: `${vp.isDesktop ? 2 : 1.5}px solid #fff`,
-          borderRadius: 999,
-          padding: vp.isDesktop ? '16px 32px' : '13px 24px',
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        GET ON THE LIST ↓
-      </button>
-    </motion.div>
+    <HeroRail vp={vp}>
+      <motion.div {...riseIn(0.45)}>
+        <button type="button" onClick={scrollToSignup} style={railPillStyle(vp)}>
+          GET ON THE LIST ↓
+        </button>
+      </motion.div>
+    </HeroRail>
   )
 }
 

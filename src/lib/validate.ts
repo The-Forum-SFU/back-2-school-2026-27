@@ -11,11 +11,13 @@
  * knows door_date from config, so it can surface "you must be 19" before submit. The
  * server's own gate lives in claim_signup, which owns the real door_date.
  *
- * There is deliberately no `ageConfirmed` or `privacyAccepted` here. The form has one
- * checkbox, the marketing opt-in, and that one IS required. The birthdate carries the
- * age attestation and the privacy notice above the submit button is passive, so
- * neither of those has a value to collect or a rule to enforce on this side. See
- * src/lib/signupApi.ts for what those two become in the request.
+ * NOTHING here validates a checkbox. The form has exactly one, the marketing opt-in, and
+ * it is OPTIONAL: an address is worth having whether or not its owner also wants the
+ * promotional mail, and the server twin does not enforce it either. There is no
+ * `ageConfirmed` or `privacyAccepted` for a different reason again: the birthdate carries
+ * the age attestation and the privacy notice by the submit button is passive, so neither
+ * has a value to collect. See src/lib/signupApi.ts for what all three become in the
+ * request.
  */
 
 export type SignupValues = {
@@ -134,11 +136,6 @@ export function validateSignup(
     // and the event is eligible, and rejecting them would silently cost signups.
     fieldErrors.dobYear = `You must be ${opts.minAge} or older on the night of the event`
   }
-
-  // Required, and re-checked server-side in api/_lib/validate.ts — this half only
-  // saves a round trip. Worded as an instruction rather than "Required" because the
-  // box is the one field where the fix isn't "type something".
-  if (!v.consentOptIn) fieldErrors.consentOptIn = 'Tick this box to join the list'
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }
   return { ok: true, dob }

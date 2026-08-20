@@ -14,6 +14,7 @@ import { ROUTES } from './routes'
  * imagery it's already fetching.
  */
 const Landing = lazy(() => import('./App'))
+const Tickets = lazy(() => import('./pages/Tickets'))
 const Guestlist = lazy(() => import('./pages/Guestlist'))
 const Confirmed = lazy(() => import('./pages/Confirmed'))
 const Privacy = lazy(() => import('./pages/Privacy'))
@@ -27,6 +28,8 @@ createRoot(document.getElementById('root')!).render(
       <Suspense fallback={Fallback}>
         <Routes>
           <Route path={ROUTES.LANDING} element={<Landing />} />
+          {/* Paired with `/` by a live redirect in both directions. See ROUTES.TICKETS. */}
+          <Route path={ROUTES.TICKETS} element={<Tickets />} />
           <Route path={ROUTES.GUESTLIST} element={<Guestlist />} />
           <Route path={ROUTES.CONFIRMED} element={<Confirmed />} />
           {/* Must be a real route, not the catch-all below: the form's consent notice

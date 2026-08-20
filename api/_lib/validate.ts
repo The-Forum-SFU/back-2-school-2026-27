@@ -165,17 +165,20 @@ export function validateSignup(body: Partial<SignupRequest>): ValidationResult {
   if (body.privacyAccepted !== true) fieldErrors.privacyAccepted = 'Required'
 
   /*
-   * consentOptIn is REQUIRED, by product decision: the guestlist is a marketing list,
-   * and a spot on it is only given to someone who agreed to hear from us.
+   * consentOptIn is deliberately NOT validated. It is the one optional field on the form.
    *
-   * It was optional here until now, on the CASL reading that consent has to be freely
-   * given. That reading is not obsolete — see the note in src/components/SignupForm.tsx
-   * for what has to stay true on the form for this to be defensible (unticked by
-   * default, plain wording, an obvious way out). Enforcing it here is what makes it a
-   * real gate: the client's copy of this check is a courtesy, and a hand-rolled POST
-   * runs none of it.
+   * It was required for one release, on the argument that a guestlist spot is only given
+   * to someone who agreed to hear from us. That is a defensible position for a list with
+   * something to trade, and the wrong one for the public landing page, where refusing an
+   * address because the sender does not also get marketing rights to it is both worse for
+   * the campaign and the exact bundling CASL's "freely given" test is aimed at.
+   *
+   * Whatever is sent is recorded as sent. `claim_signup` coalesces a missing value to
+   * false and writes `consent_text` and `consent_at` only when it is true, so declining
+   * leaves a truthful empty record rather than a consent nobody gave. See the note above
+   * `attributesFor` in api/_lib/brevo.ts for what this means downstream: the Brevo list is
+   * not a send list, a segment on OPT_IN is.
    */
-  if (body.consentOptIn !== true) fieldErrors.consentOptIn = 'Required'
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }
 

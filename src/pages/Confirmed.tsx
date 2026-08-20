@@ -3,13 +3,20 @@ import { FONT } from '../assets'
 import PaperPage from '../components/PaperPage'
 import PriceComparison from '../components/PriceComparison'
 import { INK, MUTED, RULE } from '../components/form/Field'
-import { calendarUrl, EVENT, fill, formatDoorDate, LISTS } from '../config/event'
+import {
+  calendarUrl,
+  EVENT,
+  fill,
+  formatDoorDate,
+  LISTS,
+  type TicketType,
+} from '../config/event'
 import { useNoIndex } from '../lib/useNoIndex'
 import { useViewport, type Viewport } from '../lib/viewport'
 import { ROUTES } from '../routes'
 
 /**
- * `/confirmed` — where every guestlist submission lands.
+ * `/confirmed` — where every signup lands, whichever list it was.
  *
  * Reached by submitting the form, never linked and never indexed. The build plan is
  * explicit that a submission ends on a page and not on an inline success message: this
@@ -33,6 +40,14 @@ export type ConfirmedState = {
   email: string
   /** false when they were already on the list — same page, one different line. */
   isNew: boolean
+  /**
+   * Which list was joined. OPTIONAL, and defaulted to the guestlist below.
+   *
+   * The default is not laziness, it is back-compatibility: this page used to hardcode the
+   * guestlist, so a history entry pushed before this field existed carries no value and
+   * has to keep rendering the page it was written for. Every new submission sets it.
+   */
+  ticketType?: TicketType
 }
 
 function readState(value: unknown): ConfirmedState | null {
@@ -44,6 +59,9 @@ function readState(value: unknown): ConfirmedState | null {
     lastName: typeof s.lastName === 'string' ? s.lastName : '',
     email: s.email,
     isNew: s.isNew !== false,
+    // Router state is in-memory and same-origin, but it is still not something this page
+    // controls, so an unrecognised value falls back rather than indexing LISTS with it.
+    ticketType: s.ticketType && s.ticketType in LISTS ? s.ticketType : undefined,
   }
 }
 
@@ -51,7 +69,19 @@ export default function Confirmed() {
   useNoIndex()
   const vp = useViewport()
   const state = readState(useLocation().state)
-  const cfg = LISTS['presale-guestlist']
+  const cfg = LISTS[state?.ticketType ?? 'presale-guestlist']
+
+  /**
+   * The price comparison and the door panel belong to a list with a DOOR RATE, and only
+   * the guestlist has one.
+   *
+   * This page rendered both unconditionally while the guestlist was the only list that
+   * reached it. It is now also where the public mailing list lands, and showing that
+   * person a $5-versus-$30 comparison and instructions to bring cash and arrive before
+   * the cutoff would promise them a spot at the door that nobody is holding. The door
+   * panel was already conditional; the comparison was not.
+   */
+  const hasDoorRate = cfg.priceCents > 0
 
   return (
     <PaperPage>
@@ -81,7 +111,7 @@ export default function Confirmed() {
           })}
         </p>
 
-        <PriceComparison vp={vp} variant="calm" />
+        {hasDoorRate && <PriceComparison vp={vp} variant="calm" />}
 
         {cfg.doorInstructions && (
           <section

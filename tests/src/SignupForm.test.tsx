@@ -164,7 +164,7 @@ describe('validation', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('First name'))
   })
 
-  it('will not submit a complete form with the opt-in unticked', async () => {
+  it('submits a complete form with the opt-in unticked, passing the refusal on', async () => {
     const user = userEvent.setup()
     renderForm()
     await fillValidForm(user)
@@ -172,10 +172,29 @@ describe('validation', () => {
 
     await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
 
-    expect(submitSignup).not.toHaveBeenCalled()
-    expect(screen.getByText('Tick this box to join the list')).toBeInTheDocument()
-    // Nothing else is wrong, so the box is where the user is put.
-    expect(document.activeElement).toBe(screen.getByRole('checkbox'))
+    // The opt-in is optional. Declining it is a complete submission, and the `false`
+    // has to travel: it is what api/_lib/brevo.ts records as OPT_IN and what the Brevo
+    // segment for anything promotional is filtered on.
+    await waitFor(() => expect(submitSignup).toHaveBeenCalled())
+    const [, values] = vi.mocked(submitSignup).mock.calls[0]!
+    expect(values.consentOptIn).toBe(false)
+  })
+
+  it('sends no consent wording when the opt-in was declined', async () => {
+    // Two halves of one record. Storing the sentence someone was shown next to a `false`
+    // would read later as a consent nobody gave, so the client sends null and
+    // claim_signup nulls it again. See tests/api/migrations.test.ts for the SQL half.
+    const user = userEvent.setup()
+    renderForm()
+    await fillValidForm(user)
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Claim my $5 spot' }))
+
+    await waitFor(() => expect(submitSignup).toHaveBeenCalled())
+    const [, , , extras] = vi.mocked(submitSignup).mock.calls[0]!
+    // The privacy notice is NOT conditional: pressing submit is the agreement to that
+    // one, and it is recorded whatever the checkbox said.
+    expect(extras.privacyText).toContain('Privacy Policy')
   })
 
   it('submits once the opt-in is ticked', async () => {
@@ -282,6 +301,9 @@ describe('submission', () => {
       lastName: 'Nguyen',
       email: 'jordan@example.com',
       isNew: true,
+      // Which list this was. /confirmed reads its copy and its door instructions from
+      // this, so without it every signup is shown the guestlist's.
+      ticketType: 'presale-guestlist',
     })
   })
 

@@ -2,6 +2,7 @@ import { FONT } from '../assets'
 import {
   formatDropDate,
   formatShortDate,
+  ticketsLive,
   type ListConfig,
   type ListPhase,
 } from '../config/event'
@@ -34,6 +35,18 @@ export default function RsvpClosed({ cfg, phase, vp }: Props) {
 
   const nextOpensLater =
     next?.availableFrom && new Date(next.availableFrom).getTime() > Date.now()
+
+  /**
+   * The button, only once tickets are actually being sold.
+   *
+   * `next.enabled` answers "is there a URL", which has been true since the TicketWeb link
+   * went into config days before the sale opened. On its own it put a Get Tickets button
+   * on this panel pointing at a page selling nothing, which reads as working and is a
+   * worse dead end than the sentence below it. This is a terminal panel and reads the
+   * clock once at render, which is enough: nobody sits on it waiting for noon, and the
+   * landing page is what switches live.
+   */
+  const showNextButton = Boolean(next?.enabled) && ticketsLive(new Date())
 
   return (
     <div role="status" style={{ maxWidth: 560 }}>
@@ -83,7 +96,7 @@ export default function RsvpClosed({ cfg, phase, vp }: Props) {
         </p>
       )}
 
-      {next && next.enabled && (
+      {next && showNextButton && (
         <a
           href={next.href}
           style={{
@@ -104,10 +117,10 @@ export default function RsvpClosed({ cfg, phase, vp }: Props) {
         </a>
       )}
 
-      {/* The target route doesn't exist yet, so this states the next step in words
-          rather than shipping a link to a 404. Flipping nextStep.enabled turns it
-          into the button above — one line, no refactor. */}
-      {next && !next.enabled && (
+      {/* Until then, the next step in words. `availableFrom` is the drop instant, so
+          this reads "Get tickets opens August 24" rather than shipping a button to a
+          page that is not selling. */}
+      {next && !showNextButton && (
         <p style={{ ...mutedStyle, marginTop: 4 }}>
           {/* Two sentences rather than a dash: the build plan's no-em-dash rule covers
               every user-facing string, not just the ones in src/config/event.ts. */}

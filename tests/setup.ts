@@ -15,6 +15,31 @@ if (typeof document !== 'undefined') {
   afterEach(() => cleanup())
 
   /*
+   * jsdom ships no IntersectionObserver either, and KeyArt uses one to hold the teaser
+   * back until it is nearly on screen.
+   *
+   * A stub that observes nothing and never fires, which is the honest default: nothing
+   * is on screen in jsdom, so the lazy branch stays unentered and the poster frame
+   * stands in. A test that wants the loaded state drives `setNear` by replacing this.
+   *
+   * The component guards on this being undefined and degrades to the still, so this
+   * shim is here to exercise the real path rather than to stop a crash.
+   */
+  if (!window.IntersectionObserver) {
+    window.IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return []
+      }
+      root = null
+      rootMargin = ''
+      thresholds = []
+    } as unknown as typeof IntersectionObserver
+  }
+
+  /*
    * jsdom ships no matchMedia, and useViewport calls it on first render — so every
    * component that reads the viewport throws before it renders anything.
    *

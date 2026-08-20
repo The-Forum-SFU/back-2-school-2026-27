@@ -56,7 +56,9 @@ body {
   /* The ruling is BEHIND the form, not next to it. These two are as light as they
      can be while still reading as printed lines — turn them up and every label and
      every line of terms starts competing with a blue rule running through it. */
-  --rule-ink: rgba(84, 134, 196, 0.26);
+  /* The poster's electric blue (#1A5EB8), at the alpha the ruling already used. Was a
+     generic ballpoint blue; this is the same colour the key art is lit with. */
+  --rule-ink: rgba(26, 94, 184, 0.26);
   --margin-ink: rgba(201, 88, 88, 0.3);
 
   /*

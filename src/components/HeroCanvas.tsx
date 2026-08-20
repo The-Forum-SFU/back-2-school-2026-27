@@ -23,21 +23,35 @@ const FEATHER = 170
 
 /**
  * Where the image starts on mobile, measured from the top of the viewport. Everything
- * above it is the white band the logo, caption and ScrollCue sit in.
+ * above it is the white band the logo, caption and hero rail sit in.
  *
- * Sized against the tallest thing in that band, which is whatever fills the hero rail
- * slot: it starts at 174 (heroRailSlot in Overlay.tsx) and runs ~45px as the ScrollCue
- * pill, ~50px as the DropCountdown, so anything under ~240 puts its bottom edge flush
- * against the crop. The extra room here is that clearance — change either occupant's
- * type or padding and this number has to move with it.
+ * SIZED AGAINST THE OCCUPANT OF THE RAIL SLOT, which starts at 174 (heroRailSlot in
+ * Overlay.tsx). Change an occupant's type or padding and its number moves with it, or the
+ * control's bottom edge lands on the bear.
+ *
+ * Per-occupant, not one constant, because the two are very different heights now:
+ *
+ *   cue        ~45px   the ScrollCue pill, alone
+ *   countdown ~100px   label 13 + digits 30 + gap 14 + compact pill 36, plus margins
+ *
+ * Both leave roughly 25px of clearance below the control. A single value would either
+ * crop the countdown on `/` or leave the guestlist route with 56px of empty band under a
+ * pill, which is why this follows the `rail` prop down from LandingShell.
  */
-const MOBILE_TOP = 244
+const MOBILE_TOP: Record<RailOccupant, number> = {
+  cue: 244,
+  countdown: 300,
+}
 
 /** Where the solid band ends, as a gradient stop. */
 const PLATEAU = Math.round((INFO_BAND / (INFO_BAND + FEATHER)) * 100)
 
+/** Which control LandingShell put on the hero rail. See its `rail` prop. */
+export type RailOccupant = 'cue' | 'countdown'
+
 type Props = {
   vp: Viewport
+  rail: RailOccupant
 }
 
 /**
@@ -49,8 +63,9 @@ type Props = {
  * is what keeps that from hijacking the page: vertical swipes still scroll,
  * horizontal ones come to us.
  */
-export default function HeroCanvas({ vp }: Props) {
+export default function HeroCanvas({ vp, rail }: Props) {
   const { isMobile, isDesktop } = vp
+  const mobileTop = MOBILE_TOP[rail]
   const [loaded, setLoaded] = useState(false)
   const [split, setSplit] = useState(0.5)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -115,9 +130,9 @@ export default function HeroCanvas({ vp }: Props) {
         position: 'fixed',
         zIndex: 0,
         left: 0,
-        top: isMobile ? MOBILE_TOP : 0,
+        top: isMobile ? mobileTop : 0,
         width: isMobile ? '100vw' : '100%',
-        height: isMobile ? `calc(100vh - ${MOBILE_TOP}px)` : '100%',
+        height: isMobile ? `calc(100vh - ${mobileTop}px)` : '100%',
         opacity: loaded ? 1 : 0,
         transition: 'opacity 0.3s ease',
         touchAction: 'pan-y',

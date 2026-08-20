@@ -1,6 +1,7 @@
 import { useMemo, type RefObject } from 'react'
 import { GALLERY } from '../assets'
 import { buildLayout } from '../lib/layout'
+import { GROUND } from '../theme'
 
 type Props = {
   panelRef: RefObject<HTMLDivElement | null>
@@ -12,6 +13,10 @@ type Props = {
  * The black sheet that slides up over the hero, carrying a scattered grid of
  * photos. Card scales are driven per-frame by the scroll engine, not by CSS —
  * this component only lays them out.
+ *
+ * The ground is flat, and shared with the outro below it. It spent a version as a
+ * two-corner gradient tinted off the poster; see GROUND in src/theme.ts for why that was
+ * the wrong instinct.
  */
 export default function BlackPanel({ panelRef, wrapRef, cols }: Props) {
   const rows = useMemo(() => buildLayout(GALLERY.length, cols), [cols])
@@ -23,7 +28,7 @@ export default function BlackPanel({ panelRef, wrapRef, cols }: Props) {
       className="fixed inset-0"
       style={{
         zIndex: 10,
-        background: '#000',
+        background: GROUND,
         transform: 'translateY(100vh)',
       }}
     >

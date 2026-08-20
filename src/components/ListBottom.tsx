@@ -32,8 +32,12 @@ export default function ListBottom({ ticketType }: { ticketType: TicketType }) {
  * Built from EVENT rather than written out, so the door date exists in exactly one
  * place — see the TODO on EVENT.doorDate. The address line renders only once there is
  * an address; an empty "Celebrities Nightclub," is worse than the venue name alone.
+ *
+ * Exported because LandingBottom ends with the same block. These are the venue's facts,
+ * not the list's, so every route that reaches the bottom of the scroll shows them and a
+ * second copy would be a second place for the door time to go stale.
  */
-function EventDetails({ vp }: { vp: Viewport }) {
+export function EventDetails({ vp }: { vp: Viewport }) {
   const { venue } = EVENT
 
   const lines = [

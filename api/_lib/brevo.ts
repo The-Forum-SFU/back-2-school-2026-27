@@ -17,12 +17,13 @@ import type { TicketType } from './types.js'
  * Which Brevo list each ticket type feeds.
  *
  * Written out explicitly so the gap is visible in code: .env carries PRESALE, VIP and
- * FRIENDS — three ids from a superseded plan — against four ticket types. Only
- * presale-guestlist is wired for this pass; the rest resolve to undefined and skip
+ * FRIENDS — three ids from a superseded plan — against five ticket types. Only
+ * presale-guestlist and mailing-list are wired; the rest resolve to undefined and skip
  * the sync with a logged reason rather than guessing at a list.
  */
 const LIST_ID_ENV: Record<TicketType, string | undefined> = {
   'presale-guestlist': 'BREVO_LIST_ID_PRESALE',
+  'mailing-list': 'BREVO_LIST_ID_MAILING',
   'early-access': 'BREVO_LIST_ID_EARLY_ACCESS',
   'general-onsale': 'BREVO_LIST_ID_GENERAL',
   'table-service': 'BREVO_LIST_ID_TABLE',
@@ -55,6 +56,18 @@ function sanitizePhone(e164: string): string {
   return digits ? `+${digits}` : ''
 }
 
+/**
+ * ⚠️ EVERY contact reaches the list, opted in or not.
+ *
+ * The marketing opt-in is optional on the form, and this function faithfully records
+ * whichever answer was given in `OPT_IN`. It does not gate the sync on it: the address is
+ * still needed for the transactional mail every list sends, and a contact who is on the
+ * list with `OPT_IN = false` is the honest record of what happened.
+ *
+ * The consequence is that the Brevo list alone is NOT a lawful send list. Anything
+ * promotional has to go to a segment filtered on `OPT_IN = true`. Sending to the raw list
+ * mails people who explicitly declined, which is the thing CASL is about.
+ */
 function attributesFor(contact: BrevoContact, withPhone: boolean) {
   return {
     FIRSTNAME: contact.firstName,

@@ -3,17 +3,30 @@ import { useEffect, useState } from 'react'
 import { FONT } from '../assets'
 import { EVENT, HERO_COPY } from '../config/event'
 import { riseIn } from '../lib/motion'
+import { scrollToSignup } from '../lib/scrollToSignup'
+import { useTicketsLive } from '../lib/useDropped'
 import type { Viewport } from '../lib/viewport'
-import { heroRailSlot } from './Overlay'
+import { HeroRail, railPillStyle } from './Overlay'
 
 /**
- * Live countdown to the ticket drop, on the hero's left rail.
+ * Live countdown to the ticket drop, on the hero's left rail, with an RSVP under it.
  *
- * Occupies the SAME slot as ScrollCue and is the alternative to it: a route with a
- * form below has somewhere to send people and shows the button, a route without has
- * only a date to give them and shows this. See heroRailSlot in Overlay.tsx — the two
- * share their position so neither can drift, and the mobile artwork crop is sized
- * against whichever one is there.
+ * Occupies the SAME slot as ScrollCue and is the alternative to it: LandingShell picks
+ * between them with its `rail` prop. See heroRailSlot in Overlay.tsx — the two share
+ * their position so neither can drift, and the mobile artwork crop is sized against
+ * whichever one is there.
+ *
+ * The RSVP is not decoration. The countdown answers "when", and on its own it left the
+ * hero with nothing to press: `/` is five viewports deep and someone who never scrolls
+ * never learns there is a form at all. It is the compact pill variant because this slot
+ * now holds three stacked things and still has to clear the mobile crop.
+ *
+ * WHICH OF THE TWO STATES IT IS IN is decided by `useTicketsLive`, the same predicate the
+ * routes redirect on, and NOT by whether this component's own clock has run out. Those
+ * come apart in exactly one place and it matters: `/tickets?preview=tickets` is a page
+ * that is selling tickets while the drop is still days away, and reading the clock here
+ * put a countdown and an RSVP on the hero of it. A preview that shows something the real
+ * page will never show is not a preview.
  *
  * Everything it renders comes from EVENT.ticketDropAt and HERO_COPY, so moving the
  * drop is a one-line edit in config and nothing here changes.
@@ -44,7 +57,24 @@ function remainingFrom(now: number): Remaining | null {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-export default function DropCountdown({ vp }: { vp: Viewport }) {
+export default function DropCountdown({
+  vp,
+  hasBottom = false,
+}: {
+  vp: Viewport
+  /**
+   * Whether this route has a section below to send people to.
+   *
+   * Decides what the selling state's pill DOES, not what it says. With a section below it
+   * scrolls, because `/tickets` has the checkout on the page and sending someone off to
+   * TicketWeb from the hero of the page that already contains it is a worse answer than
+   * the one two screens down. Without one there is nowhere to scroll, so it links out.
+   *
+   * Defaults to false, which is the safe direction: a forgotten prop gives a link that
+   * works rather than a button that silently does nothing.
+   */
+  hasBottom?: boolean
+}) {
   const [left, setLeft] = useState(() => remainingFrom(Date.now()))
   const done = left === null
 
@@ -65,45 +95,56 @@ export default function DropCountdown({ vp }: { vp: Viewport }) {
   }, [done, live])
 
   const desktop = vp.isDesktop
+  const selling = useTicketsLive()
 
   /*
-    Past the drop this either hands over to the real ticket link or renders nothing.
+    Selling: the rail hands over to the ticket link.
 
-    Nothing is the honest option while EVENT.tickets.url is still empty: a countdown
-    frozen at zero, or a "tickets are live" line with no way to buy any, is worse than
-    the empty rail that is on this route today. Filling in the URL and flipping
-    `tickets.enabled` turns it into the button with no change here.
+    Not "past the drop", which is the subtly different thing this used to test. A route
+    can be selling before the drop, under preview, and the drop can pass with nothing to
+    sell if the TicketWeb link was pulled or never landed. The predicate covers both, and
+    is the one the routes redirect on, so the hero cannot contradict the page it sits on.
   */
-  if (!left) {
-    if (!EVENT.tickets.enabled || !EVENT.tickets.url) return null
+  if (selling && hasBottom) {
     return (
-      <motion.div {...riseIn(0.45)} style={heroRailSlot(vp)}>
-        <a
-          href={EVENT.tickets.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            fontFamily: FONT,
-            fontWeight: 500,
-            fontSize: desktop ? 19 : 16,
-            lineHeight: 1,
-            letterSpacing: '-0.02em',
-            textTransform: 'uppercase',
-            color: '#fff',
-            background: 'none',
-            border: `${desktop ? 2 : 1.5}px solid #fff`,
-            borderRadius: 999,
-            padding: desktop ? '16px 32px' : '13px 24px',
-            textDecoration: 'none',
-            pointerEvents: 'auto',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          GET TICKETS
-        </a>
-      </motion.div>
+      <HeroRail vp={vp}>
+        <motion.div {...riseIn(0.45)}>
+          {/* The arrow is the difference between this and the link below, and it is the
+              same arrow ScrollCue and the RSVP use. It promises a move down the page
+              rather than a move off it. */}
+          <button type="button" onClick={scrollToSignup} style={railPillStyle(vp)}>
+            GET TICKETS ↓
+          </button>
+        </motion.div>
+      </HeroRail>
     )
   }
+
+  if (selling && EVENT.tickets.url) {
+    return (
+      <HeroRail vp={vp}>
+        <motion.div {...riseIn(0.45)}>
+          <a
+            href={EVENT.tickets.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={railPillStyle(vp)}
+          >
+            GET TICKETS
+          </a>
+        </motion.div>
+      </HeroRail>
+    )
+  }
+
+  /*
+    The drop has passed and there is nothing to sell, so the rail is empty.
+
+    Nothing is the honest option here: a countdown frozen at zero, or a "tickets are live"
+    line with no way to buy any, is worse than the bare rail this route had before tickets
+    existed. Filling in the URL turns it into the button above with no change here.
+  */
+  if (!left) return null
 
   /*
     Units laid out on ONE line, each number followed by its own letter, rather than as
@@ -136,8 +177,9 @@ export default function DropCountdown({ vp }: { vp: Viewport }) {
     .join(', ')
 
   return (
-    <motion.div {...riseIn(0.45)} style={heroRailSlot(vp)}>
-      <div
+    <HeroRail vp={vp}>
+      <motion.div
+        {...riseIn(0.45)}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -207,7 +249,23 @@ export default function DropCountdown({ vp }: { vp: Viewport }) {
             </div>
           ))}
         </div>
-      </div>
-    </motion.div>
+
+        {/*
+          The one thing on this hero we want pressed.
+
+          Scrolls rather than links, and says RSVP rather than TICKETS, because until the
+          drop lands there is no ticket to sell: what is below is a form that puts you on
+          the list. Same wording as the header control on this route, so the two read as
+          one offer rather than two.
+        */}
+        <button
+          type="button"
+          onClick={scrollToSignup}
+          style={{ ...railPillStyle(vp, true), marginTop: desktop ? 18 : 14 }}
+        >
+          RSVP ↓
+        </button>
+      </motion.div>
+    </HeroRail>
   )
 }

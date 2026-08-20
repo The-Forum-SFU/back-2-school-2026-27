@@ -64,6 +64,10 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
     const footer = document.getElementById('outro-footer')
     const cursor = document.getElementById('custom-cursor')
     const symbol = document.getElementById('circle-symbol')
+    // The outro's three-way crossfade: the artwork arrives as the hero's own copy leaves.
+    const keyart = document.getElementById('outro-keyart')
+    const caption = document.getElementById('hero-caption')
+    const rail = document.getElementById('hero-rail')
 
     let vh = window.innerHeight
     let maxScroll = 0
@@ -133,6 +137,31 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
       if (overlay) overlay.style.opacity = `${outro}`
       if (info) info.style.transform = `translate3d(0, ${-outroOffset * outro}px, 0)`
       if (footer) footer.style.opacity = `${outro}`
+
+      /*
+        The key art fades UP with the ground it sits on, and the hero's own copy fades
+        DOWN out of its way on the same ramp.
+
+        The caption and the rail belong to a viewport four screens back, and leaving them
+        pinned through the outro put a tagline and a running clock across the artwork with
+        no room left for it. Crossfading on one value is what keeps the swap from reading
+        as two separate things happening.
+
+        Every route renders the key art today, so the gate below always passes. It is
+        kept because the two halves have to move together: if a route ever opts out of the
+        artwork, clearing the hero copy would be removing an affordance to make room for
+        nothing. On the routes that hold the cue rather than the countdown, the [ RSVP ]
+        control in the header does not fade, so the jump to the form survives this.
+
+        These are plain wrappers, never the elements Motion animates on entry — see the
+        note on Caption and HeroRail in Overlay.tsx for why that distinction matters.
+      */
+      if (keyart) {
+        keyart.style.opacity = `${outro}`
+        const heroCopy = `${1 - outro}`
+        if (caption) caption.style.opacity = heroCopy
+        if (rail) rail.style.opacity = heroCopy
+      }
 
       // The bottom section (when a route has one) begins entering here and has fully
       // covered the viewport one viewport later. It sits above every fixed layer, so

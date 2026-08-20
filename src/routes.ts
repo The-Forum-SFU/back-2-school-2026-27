@@ -38,6 +38,22 @@ export const ROUTES = {
    */
   CONFIRMATION: '/confirmation',
   /**
+   * The ticket page, and where `/` sends everyone once tickets are on sale.
+   *
+   * A separate route rather than a section that swaps in place, so the two states of this
+   * campaign are two addresses: before the drop `/` collects addresses, after it `/`
+   * redirects here and this sells. That means a link posted on the day lands on a page
+   * that is about buying rather than on a page that used to be about waiting, and the
+   * redirect is live, so a tab already open on `/` at 11:59 moves itself at noon.
+   *
+   * The redirect runs BOTH ways and off one predicate, `useTicketsLive`, which is what
+   * makes a loop impossible: whichever answer it gives, exactly one of the two routes
+   * wants to redirect. Before the drop this one sends people back to `/`.
+   *
+   * Public and indexable. Do not call useNoIndex on it.
+   */
+  TICKETS: '/tickets',
+  /**
    * Public and INDEXABLE, unlike everything else here except the landing page.
    *
    * The signup form links to this from the notice above its submit button, and

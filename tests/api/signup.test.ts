@@ -296,12 +296,16 @@ describe('what reaches the database', () => {
     expect(args.p_phone).toBe('+16045550123')
   })
 
-  it('refuses the signup outright when the box was not ticked, and writes no row', async () => {
-    const captured = await post(validBody({ consentOptIn: false }))
-    expect(captured.status).toBe(400)
-    expect(captured.body).toMatchObject({ status: 'invalid' })
-    expect(rpc).not.toHaveBeenCalled()
+  it('writes the row when the box was not ticked, recording the refusal', async () => {
+    // The opt-in is optional, so this is an ordinary successful signup. What matters is
+    // that the "no" reaches the database as a real `false` and not as a missing value:
+    // claim_signup writes consent_text and consent_at only when this is true, so a
+    // declined opt-in has to be distinguishable from one that was never asked.
+    await post(validBody({ consentOptIn: false }))
+    expect(rpc).toHaveBeenCalled()
+    expect(rpcArgs().p_consent_opt_in).toBe(false)
   })
+
 
   it('passes the opt-in through as a real boolean when it was ticked', async () => {
     await post(validBody({ consentOptIn: true }))

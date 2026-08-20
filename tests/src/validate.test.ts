@@ -68,12 +68,13 @@ describe('validateSignup', () => {
     if (result.ok) expect(result.dob).toBe('2004-04-12')
   })
 
-  it('requires every field on the form, the opt-in included', () => {
+  it('requires every field on the form except the opt-in', () => {
     const result = validateSignup(EMPTY_VALUES, OPTS)
     expect(result.ok).toBe(false)
     if (result.ok) return
+    // Exhaustive on purpose: this is the list of things someone has to type, and a new
+    // entry appearing here without a decision behind it is a field that grew a rule.
     expect(Object.keys(result.fieldErrors).sort()).toEqual([
-      'consentOptIn',
       'dobYear',
       'email',
       'firstName',
@@ -82,13 +83,17 @@ describe('validateSignup', () => {
     ])
   })
 
-  it('will not let an otherwise perfect form through with the box unticked', () => {
-    const result = validateSignup(values({ consentOptIn: false }), OPTS)
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    // The message has to say what to do — "Required" under a checkbox reads as a bug.
-    expect(result.fieldErrors.consentOptIn).toMatch(/tick/i)
+  it('lets an otherwise perfect form through with the box unticked', () => {
+    // The opt-in is the one optional field. Declining the marketing mail is a complete
+    // submission that records a declined opt-in, not an error to be corrected.
+    const declined = validateSignup(values({ consentOptIn: false }), OPTS)
+    expect(declined.ok).toBe(true)
     expect(validateSignup(values({ consentOptIn: true }), OPTS).ok).toBe(true)
+
+    // And it can never be the thing that blocks a submit.
+    const empty = validateSignup(EMPTY_VALUES, OPTS)
+    if (empty.ok) return
+    expect(empty.fieldErrors).not.toHaveProperty('consentOptIn')
   })
 
   it('has no age or privacy checkbox left to require', () => {

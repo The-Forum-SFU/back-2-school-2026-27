@@ -108,6 +108,25 @@ describe('claim_signup', () => {
     expect(sql).not.toMatch(/v_taken \+ 1/)
   })
 
+  /**
+   * Now that the opt-in is OPTIONAL, a declined one is an ordinary daily event rather
+   * than something only a hand-rolled POST could produce, and this guard is what keeps
+   * the consent columns honest for all of them.
+   *
+   * The handler does not do this. api/signup.ts passes `consentText` through as it was
+   * sent, so the SQL below is the only thing standing between a declined opt-in and a
+   * row that has the consent wording and a consent timestamp sitting next to a `false`.
+   * Read later, that row is indistinguishable from a consent someone actually gave.
+   */
+  it('records consent wording and its timestamp only when the opt-in was true', () => {
+    const sql = current
+    expect(sql).toMatch(/case when p_consent_opt_in then p_consent_text else null end/)
+    expect(sql).toMatch(/case when p_consent_opt_in then now\(\) else null end/)
+    // The flag itself is always stored, so a refusal is recorded as a refusal rather
+    // than as an absence.
+    expect(sql).toMatch(/coalesce\(p_consent_opt_in, false\)/)
+  })
+
   it('re-raises a unique violation that is not the email dedup', () => {
     // Returning already_registered unconditionally tells a first-time signup they are
     // on a list they never joined, drops their row, and logs nothing.

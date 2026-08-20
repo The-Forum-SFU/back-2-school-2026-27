@@ -24,6 +24,37 @@
       content="Sunday, September 20 at Celebrities Nightclub. 19+."
     />
     <meta property="og:type" content="website" />
+    <!--
+      The link preview image. There was none at all before the campaign art existed, so
+      every share of this URL rendered as a bare text card, which on Instagram and iMessage
+      is most of what a link looks like.
+
+      The 16:9 poster crop rather than the 4:5 one: 1.91:1 is what Facebook, iMessage and
+      Twitter all crop toward, and a portrait source gets its top and bottom taken off,
+      which on this artwork is the wordmark and the venue line. JPEG rather than WebP
+      because several crawlers still do not decode it.
+
+      ROOT-RELATIVE, which the spec does not strictly allow. Facebook, iMessage and
+      Twitter all resolve it against the page origin; smaller scrapers may not. It is
+      written this way because the event is getting its own subdomain and no absolute URL
+      here would be right for both that and the preview deployments. Make it absolute once
+      the final host is fixed, and validate with Facebook's sharing debugger, which caches
+      hard.
+    -->
+    <meta property="og:image" content="/event/poster-og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta
+      property="og:image:alt"
+      content="Rewind: SFU's Biggest Back to School Party. Sunday, September 20 at Celebrities Nightclub."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rewind: SFU's Biggest Back to School Party" />
+    <meta
+      name="twitter:description"
+      content="Sunday, September 20 at Celebrities Nightclub. 19+."
+    />
+    <meta name="twitter:image" content="/event/poster-og.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -29,6 +29,48 @@ function renderPage(state: unknown = STATE) {
   )
 }
 
+describe('when the signup was not the guestlist', () => {
+  /*
+    This page hardcoded the guestlist config while that was the only list with a form.
+    It is now also where the public mailing list lands, and everything the guestlist
+    panel says is a promise about a door that nobody is holding for these people: a
+    discounted rate, a cash amount, a check-in cutoff. Getting this wrong does not look
+    like a bug on screen, it looks like an argument at the door.
+  */
+  const MAILING: ConfirmedState = { ...STATE, ticketType: 'mailing-list' }
+
+  it('promises nothing at the door', () => {
+    renderPage(MAILING)
+    expect(screen.queryByText(/Give the staff the exact name/)).toBeNull()
+    expect(screen.queryByText(/bring \$5 cash/)).toBeNull()
+    expect(screen.queryByText(/checked in before/)).toBeNull()
+  })
+
+  it('does not show the guestlist price comparison', () => {
+    renderPage(MAILING)
+    expect(screen.queryByText(/discounted guestlist/i)).toBeNull()
+  })
+
+  it('still confirms the signup and still gives the event details', () => {
+    renderPage(MAILING)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('You are on the list.')
+    expect(screen.getByText(/Check your inbox/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(EVENT.venue.name))).toBeInTheDocument()
+  })
+
+  it('falls back to the guestlist for state written before the field existed', () => {
+    // A history entry pushed by the previous build carries no ticketType, and reloading
+    // onto it has to keep rendering the page it was written for.
+    renderPage(STATE)
+    expect(screen.getByText(/Give the staff the exact name/)).toBeInTheDocument()
+  })
+
+  it('ignores a ticketType that is not a list', () => {
+    renderPage({ ...STATE, ticketType: 'not-a-list' })
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
+  })
+})
+
 describe('with the state the form hands over', () => {
   it('sends them to their inbox rather than restating the rate', () => {
     renderPage()

@@ -22,6 +22,7 @@ import { ROUTES } from '../routes'
 
 export type TicketType =
   | 'presale-guestlist'
+  | 'mailing-list'
   | 'early-access'
   | 'general-onsale'
   | 'table-service'
@@ -185,7 +186,17 @@ export const EVENT = {
     ticketCents: 2300,
     /** Regular ticket, all-in with fees. TODO: fee unconfirmed, roughly $8. */
     ticketAllInCents: 3000,
-    /** Early bird tickets, for the public page when it lands. */
+    /**
+     * Early bird tickets. DISPLAY ONLY, and a mirror of someone else's number.
+     *
+     * The tiering is configured on TicketWeb's side and enforced there: the first 80 sold
+     * are $8 because TicketWeb is counting them, not because anything here is. Nothing in
+     * this repo reads these to gate, price or count anything, and nothing should start
+     * to. They exist so the landing copy can name the offer without a literal.
+     *
+     * Which also means they can go stale silently. If the tier is changed on TicketWeb,
+     * change them here too, or the page advertises a price nobody is charging.
+     */
     earlyBirdCents: 800,
     earlyBirdCount: 80,
     /** Discounted guestlist door rates, either side of the cutoff. */
@@ -215,23 +226,35 @@ export const EVENT = {
    * panel's `ticketDrop.date` both read from it below, so the clock ticking on the hero
    * can never disagree with the date printed on the closed panel.
    *
-   * TODO: the TIME is unconfirmed — the build plan writes it as "xxPM", which is why
-   * `ticketDrop.time` is still null and no time is printed anywhere. Midnight is what
-   * general-onsale.opensAt has said all along, so the countdown inherits that rather
-   * than inventing a second guess. Set the real hour here once it is confirmed and
-   * everything downstream follows.
+   * CONFIRMED as noon Pacific. This said midnight while the hour was still the build
+   * plan's "xxPM" placeholder. Now that there is a real time, `ticketDrop.time` prints it
+   * and the landing page swaps its form for the TicketWeb embed at this instant, so
+   * nobody has to be awake to flip anything on the day.
    */
-  ticketDropAt: '2026-08-24T00:00:00-07:00',
+  ticketDropAt: '2026-08-24T12:00:00-07:00',
 
   /**
-   * The [ TICKETS ] control in the landing-page header.
-   * While `enabled` is false it scrolls to the signup section instead of linking out,
-   * so there is never a dead link. Flip on Aug 24 when General On-Sale opens.
+   * Where a ticket buyer goes, in the two shapes the page needs.
+   *
+   * `enabled` is NOT the date gate. The date gate is `ticketDropAt`, read through
+   * `hasDropped()` below, so nothing has to be flipped by hand at noon. This flag is the
+   * manual override on top of it: one switch to pull every ticket link at once if
+   * TicketWeb is not ready, shared by the header control, the hero pill and the section.
+   *
+   * `url` is the link out and is the only one of the two that is load-bearing. `embedUrl`
+   * is the iframe src and is treated as an enhancement: TicketWeb sends no
+   * X-Frame-Options and no frame-ancestors directive, so the frame does render, but a
+   * third-party checkout in an iframe inside Instagram's in-app browser fails often
+   * enough that TicketsSection always shows the plain link alongside it.
+   *
+   * `?theme=Blueprint_` is TicketWeb's own embeddable theme, which is why one URL serves
+   * both jobs.
    */
   tickets: {
-    enabled: false,
-    // TODO: confirm the TicketWeb event URL.
-    url: '',
+    enabled: true,
+    url: 'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423?theme=Blueprint_',
+    embedUrl:
+      'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423?theme=Blueprint_',
   },
 } as const
 
@@ -442,19 +465,22 @@ export const LISTS: Record<TicketType, ListConfig> = {
       ],
     },
     nextStep: {
-      // No TicketWeb URL yet, so this renders as text. Flipping EVENT.tickets.enabled
-      // once the URL lands turns it into the button, with no change here.
       enabled: EVENT.tickets.enabled && Boolean(EVENT.tickets.url),
       href: EVENT.tickets.url,
       label: 'Get tickets',
+      // Which turns the button back into a sentence until the drop lands. This list can
+      // fill before Aug 24, and a "Get tickets" button pointing at a TicketWeb page that
+      // is not selling yet is worse than being told the date. See RsvpClosed.
+      availableFrom: EVENT.ticketDropAt,
     },
     ticketDrop: {
       // Date half of EVENT.ticketDropAt, so this panel and the hero countdown name the
       // same day by construction. The offset is Pacific and the time is midnight, so
       // slicing the ISO string is exact here — no timezone arithmetic to get wrong.
       date: EVENT.ticketDropAt.slice(0, 10),
-      // TODO: drop time unconfirmed ("xxPM"). Null omits it rather than printing a placeholder.
-      time: null,
+      // Confirmed. Was null while the hour was still a placeholder; RsvpClosed renders
+      // "Tickets drop August 24th at 12 PM" now rather than the date on its own.
+      time: '12 PM',
       label: 'Wave 1',
     },
     copy: {
@@ -485,6 +511,79 @@ export const LISTS: Record<TicketType, ListConfig> = {
       alreadyBody: CONFIRMATION_BODY,
       closedTitle: 'The discounted guestlist is full',
       closedBody: `Tickets are the next best thing, and the first ${P.earlyBirdCount} are ${money(P.earlyBirdCents)}.`,
+
+      ...CONSENT_COPY,
+      ...FIELD_COPY,
+    },
+  },
+
+  /**
+   * The public landing page's list, and the only one anyone can reach without a link.
+   *
+   * It exists because `/` had nothing to do until tickets went on sale. This collects the
+   * address so that moment can be announced, and it is NOT a guestlist: no capacity, no
+   * door rate, no spot at the door. That distinction is load-bearing in three places, so
+   * changing any of them means changing all three.
+   *
+   *   `capacity: null`  claim_signup only reports 'full' when capacity is not null, so
+   *                     this list can never fill and never has to publish a count.
+   *   no doorInstructions  /confirmed renders that panel only when the list has one. A
+   *                     mailing-list signup must never be told to bring cash to the door.
+   *   no termsLines     there is nothing to disclaim, because nothing is promised.
+   *
+   * `closesAt` IS the drop instant, by construction rather than by a second date that
+   * could drift: the server stops accepting at the same moment LandingBottom swaps this
+   * form out for the TicketWeb embed.
+   */
+  'mailing-list': {
+    ticketType: 'mailing-list',
+    label: 'Mailing List',
+    blurb: 'First to know when tickets drop.',
+    capacity: null,
+    opensAt: '2026-08-10T00:00:00-07:00',
+    closesAt: EVENT.ticketDropAt,
+    priceCents: 0,
+    minAge: 19,
+    mode: 'signup',
+    nextStep: {
+      enabled: EVENT.tickets.enabled && Boolean(EVENT.tickets.url),
+      href: EVENT.tickets.url,
+      label: 'Get tickets',
+      availableFrom: EVENT.ticketDropAt,
+    },
+    ticketDrop: {
+      date: EVENT.ticketDropAt.slice(0, 10),
+      time: '12 PM',
+      label: 'Wave 1',
+    },
+    copy: {
+      eyebrow: 'Before tickets drop',
+      heading: 'Get first access',
+      subheading:
+        `Join us at ${EVENT.tagline}. This year, with a special throwback edition. We will be ` +
+        'playing your favourite songs throughout the last decades, where you will be able to ' +
+        'sing along!',
+      // No detailsLine, unlike the guestlist. The landing page puts the key art card
+      // directly above this heading and that card already lists the date, the venue and
+      // the door time, so this slot would be the same three facts a second time in the
+      // space of 200px. The guestlist route has no card and still needs the line.
+
+      formHeading: 'Join the list',
+      // Says what arrives and roughly when, which is the only question anyone has at this
+      // field. The first tickets are the cheap ones, and that is the reason to be on it.
+      formSubheading:
+        `We will email you the moment tickets go live. The first ${P.earlyBirdCount} are ` +
+        `${money(P.earlyBirdCents)}.`,
+      submitLabel: 'Notify me',
+
+      successTitle: 'You are on the list.',
+      successBody: CONFIRMATION_BODY,
+      alreadyTitle: 'You are already on the list.',
+      alreadyBody: CONFIRMATION_BODY,
+      // Reached only if someone submits after the drop, which the server rejects. The page
+      // itself has already replaced this whole block with the ticket embed by then.
+      closedTitle: 'Tickets are on sale',
+      closedBody: 'The list has closed because tickets are live.',
 
       ...CONSENT_COPY,
       ...FIELD_COPY,
@@ -613,4 +712,40 @@ export function formatShortDate(iso: string): string {
     day: 'numeric',
     timeZone: EVENT.timeZone,
   })
+}
+
+/**
+ * Has the ticket drop landed?
+ *
+ * One predicate over `EVENT.ticketDropAt` so nothing else re-parses that ISO string. The
+ * `now` argument is required rather than defaulted to `Date.now()`: this decides which
+ * half of the landing page renders, and a function that reads the clock on its own is one
+ * that cannot be tested at the boundary. See src/lib/useDropped.ts for the live version.
+ */
+export function hasDropped(now: Date): boolean {
+  return now.getTime() >= new Date(EVENT.ticketDropAt).getTime()
+}
+
+/**
+ * Is there a ticket link to send anyone to at all? Config only, no clock.
+ *
+ * Separate from `ticketsLive` below because the two answer different questions and one
+ * of them is the safety net. This one is "has someone wired TicketWeb up", which is what
+ * LandingBottom checks before it takes a working signup form off the page.
+ */
+export function ticketsAvailable(): boolean {
+  return EVENT.tickets.enabled && Boolean(EVENT.tickets.url || EVENT.tickets.embedUrl)
+}
+
+/**
+ * Are tickets ACTUALLY on sale right now?
+ *
+ * Every ticket link on the site is gated on this, and it exists because the URL had to be
+ * put in config days before the sale opened. Without the date half, the header control
+ * and the guestlist's closed panel both started pointing at a live TicketWeb page that
+ * was not selling anything yet, which is a worse dead end than no link: it looks like it
+ * worked. `enabled` remains the manual override for pulling all of them at once.
+ */
+export function ticketsLive(now: Date): boolean {
+  return ticketsAvailable() && hasDropped(now)
 }

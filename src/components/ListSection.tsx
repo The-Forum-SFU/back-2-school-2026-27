@@ -139,6 +139,9 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
     )
   }
 
+  // Only the guestlist has a door rate to compare against a ticket price.
+  const showPrices = cfg.priceCents > 0
+
   if (cfg.mode !== 'signup') {
     // Only the signup body is built this pass. Typed in the union so adding
     // checkout/inquiry later is filling in a branch, not restructuring the page.
@@ -159,14 +162,29 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
         )}
       </header>
 
-      <PriceComparison vp={vp} />
+      {/*
+        Only for a list that actually HAS a door rate, which is only the guestlist.
 
-      <SignupForm
-        cfg={cfg}
-        vp={vp}
-        onResult={onResult}
-        onDirty={() => setFormDirty(true)}
-      />
+        This was unconditional while the guestlist was the only list with a form. It is
+        now also rendered above the public mailing-list form, where a $5-versus-$30
+        comparison would advertise a discounted door price to someone who is not being
+        given one. `priceCents` is the same test /confirmed uses for the same reason.
+      */}
+      {showPrices && <PriceComparison vp={vp} />}
+
+      {/*
+        The comparison carried the gap between the header above and the form below in its
+        own margins. Without it the form heading collided with the details line and the
+        two blocks read as one. This restores the same separation when it is absent.
+      */}
+      <div style={{ marginTop: showPrices ? 0 : vp.isDesktop ? 48 : 36 }}>
+        <SignupForm
+          cfg={cfg}
+          vp={vp}
+          onResult={onResult}
+          onDirty={() => setFormDirty(true)}
+        />
+      </div>
     </motion.div>
   )
 }

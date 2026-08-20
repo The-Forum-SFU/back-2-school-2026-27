@@ -38,8 +38,14 @@ export function initMetaPixel(): boolean {
     const t = b.createElement(e) as HTMLScriptElement
     t.async = true
     t.src = v
+    // Meta's own snippet indexes [0] and dereferences it. That is safe in a document
+    // that already has a script tag and a crash in one that does not, and the throw
+    // lands inside a React effect and takes the whole signup section down with it.
+    // Since this now runs on the PUBLIC landing page rather than only the unlisted
+    // guestlist route, appending to <head> is the fallback rather than a nicety.
     const s = b.getElementsByTagName(e)[0]
-    s.parentNode?.insertBefore(t, s)
+    if (s?.parentNode) s.parentNode.insertBefore(t, s)
+    else b.head.appendChild(t)
   })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js')
   /* eslint-enable */
 

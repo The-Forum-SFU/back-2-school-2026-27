@@ -196,17 +196,18 @@ describe('validateSignup', () => {
     expect(validateSignup(validBody({ ageConfirmed: 'yes' as never })).ok).toBe(false)
   })
 
-  it('requires consentOptIn — a spot on the list is only given to someone who opted in', () => {
-    // The gate that matters. The client has its own copy of this check, and a
-    // hand-rolled POST runs none of it.
-    for (const missing of [{ consentOptIn: false }, { consentOptIn: undefined }] as const) {
-      const result = validateSignup(validBody(missing))
-      expect(result.ok).toBe(false)
-      if (result.ok) return
-      expect(result.fieldErrors.consentOptIn).toBeTruthy()
+  it('does not require consentOptIn, which is the one optional field', () => {
+    // Unlike the two attestations above, this one is a genuine choice, and refusing an
+    // address because its owner declined the marketing mail bundles a consent that CASL
+    // wants freely given. Every shape of "no" is a valid submission.
+    for (const declined of [
+      { consentOptIn: false },
+      { consentOptIn: undefined },
+      { consentOptIn: 'yes' as never },
+    ] as const) {
+      const result = validateSignup(validBody(declined))
+      expect(result.ok).toBe(true)
     }
-    // Truthy-but-not-true must not pass, same as the two attestations above.
-    expect(validateSignup(validBody({ consentOptIn: 'yes' as never })).ok).toBe(false)
   })
 
   it('reports every bad field at once rather than one per round trip', () => {
