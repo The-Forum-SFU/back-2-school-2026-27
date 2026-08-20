@@ -25,6 +25,18 @@
     />
     <meta property="og:type" content="website" />
     <!--
+      The canonical address to share, and deliberately the ROOT rather than the current
+      path. This is a single-page app behind a catch-all rewrite, so every route is served
+      this same document, and a crawler does not run the JS that would make a per-route
+      value possible. One correct value for the campaign beats a value that is right on
+      one route and wrong on four.
+
+      Not paired with a <link rel="canonical">. Google DOES run the JS, self-canonicalises
+      to the URL it fetched, and a static canonical here would tell it that /privacy and
+      /tickets are duplicates of the landing page and deindex both.
+    -->
+    <meta property="og:url" content="https://rewind.theforumuniversity.com/" />
+    <!--
       The link preview image. There was none at all before the campaign art existed, so
       every share of this URL rendered as a bare text card, which on Instagram and iMessage
       is most of what a link looks like.
@@ -34,14 +46,20 @@
       which on this artwork is the wordmark and the venue line. JPEG rather than WebP
       because several crawlers still do not decode it.
 
-      ROOT-RELATIVE, which the spec does not strictly allow. Facebook, iMessage and
-      Twitter all resolve it against the page origin; smaller scrapers may not. It is
-      written this way because the event is getting its own subdomain and no absolute URL
-      here would be right for both that and the preview deployments. Make it absolute once
-      the final host is fixed, and validate with Facebook's sharing debugger, which caches
-      hard.
+      ABSOLUTE, as the spec requires. This was root-relative while the event had no host
+      of its own: Facebook, iMessage and Twitter all resolve a relative og:image against
+      the page origin, but smaller scrapers do not, and no absolute value would have been
+      right for both the coming subdomain and the preview deploys. The subdomain is live,
+      so the trade is over and correctness wins.
+
+      The cost is that preview deployments now advertise the production image, which is
+      the right way round: a preview's card being slightly wrong is invisible, and a
+      production share rendering as a bare text card is the thing people see.
+
+      Changing this needs a re-scrape in Facebook's sharing debugger. It caches hard, and
+      a URL already shared keeps its old card until something asks for a new one.
     -->
-    <meta property="og:image" content="/event/poster-og.jpg" />
+    <meta property="og:image" content="https://rewind.theforumuniversity.com/event/poster-og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="675" />
     <meta
@@ -54,7 +72,7 @@
       name="twitter:description"
       content="Sunday, September 20 at Celebrities Nightclub. 19+."
     />
-    <meta name="twitter:image" content="/event/poster-og.jpg" />
+    <meta name="twitter:image" content="https://rewind.theforumuniversity.com/event/poster-og.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

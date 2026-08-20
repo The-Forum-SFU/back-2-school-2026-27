@@ -1,0 +1,21 @@
+# Rewind — rewind.theforumuniversity.com
+#
+# There was no file here at all, which is not the same as no rules: vercel.json rewrites
+# every non-/api path to index.html, so a crawler asking for /robots.txt was served the
+# landing page as text/html with a 200. Static files are matched before rewrites, which
+# is why putting a real file here is the whole fix.
+#
+# NOTHING IS DISALLOWED BY PATH, and the guestlist route's absence is deliberate rather
+# than an oversight. robots.txt is public and is the first thing anyone fetches from a
+# domain, so a `Disallow: /list-<random>` line would publish the exact string the random
+# suffix exists to keep unguessable. The unlisted routes are kept out of search by the
+# noindex tag useNoIndex puts in the head, which only something that already has the URL
+# ever sees. Do not "tighten" this by listing them.
+
+User-agent: *
+Allow: /
+
+# No content behind these, and they already answer with X-Robots-Tag: noindex.
+Disallow: /api/
+
+Sitemap: https://rewind.theforumuniversity.com/sitemap.xml

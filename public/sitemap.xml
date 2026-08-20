@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The three public routes, and only those.
+
+  /confirmed and the guestlist are deliberately absent: both are noindex, and a sitemap
+  is a published document, so listing the guestlist path here would leak it exactly the
+  way a robots.txt Disallow line would. See src/routes.ts and src/lib/useNoIndex.ts.
+
+  /tickets is listed even though it forwards to `/` until the drop. It is a real public
+  route with its own address, it is where every link points from the drop onward, and a
+  page that is temporarily a redirect is a normal thing for a crawler to meet.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://rewind.theforumuniversity.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://rewind.theforumuniversity.com/tickets</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://rewind.theforumuniversity.com/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+</urlset>

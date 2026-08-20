@@ -1,14 +1,18 @@
 /**
  * Meta Pixel loader.
  *
- * Injected from the component that renders the form rather than from index.html.
- * Two reasons: the pixel then loads wherever the form is, on any list route, without
- * either mount point knowing about it, and — more importantly —
- * Vite's `%VITE_META_PIXEL_ID%` HTML interpolation leaves the LITERAL string in the
- * markup when the var is unset, which is today's state. That would initialise a
- * pixel whose id is the string "%VITE_META_PIXEL_ID%".
+ * Injected from JS rather than from index.html, because Vite's `%VITE_META_PIXEL_ID%`
+ * HTML interpolation leaves the LITERAL string in the markup when the var is unset.
+ * That would initialise a pixel whose id is the string "%VITE_META_PIXEL_ID%".
  *
- * Everything here no-ops when VITE_META_PIXEL_ID is absent.
+ * Everything here no-ops when VITE_META_PIXEL_ID is absent, so a deploy preview with
+ * no pixel configured behaves like the real site minus the reporting.
+ *
+ * WHO CALLS THIS. `PageTracking`, mounted once at the router root, and nothing else.
+ * It used to be `ListSection`, which meant the pixel only existed on the two routes
+ * that render a signup form: `/tickets` — the page every ad points at from the drop
+ * onward — `/confirmed` and `/privacy` fired nothing at all. Init belongs to the app,
+ * not to one section of one page.
  */
 
 // Module scope, so StrictMode's double-invoked effects can't double-init.
@@ -24,7 +28,7 @@ export function initMetaPixel(): boolean {
 
   /* eslint-disable */
   // Meta's standard snippet, transcribed. The stub queues calls made before the
-  // script loads, which is why trackLead can fire immediately after init.
+  // script loads, which is why trackPageView and trackLead can fire immediately after.
   ;(function (f: any, b: Document, e: string, v: string) {
     if (f.fbq) return
     const n: any = (f.fbq = function () {
@@ -40,9 +44,9 @@ export function initMetaPixel(): boolean {
     t.src = v
     // Meta's own snippet indexes [0] and dereferences it. That is safe in a document
     // that already has a script tag and a crash in one that does not, and the throw
-    // lands inside a React effect and takes the whole signup section down with it.
-    // Since this now runs on the PUBLIC landing page rather than only the unlisted
-    // guestlist route, appending to <head> is the fallback rather than a nicety.
+    // lands inside a React effect and takes the whole page down with it. Since this
+    // now runs at the router root on EVERY route, appending to <head> is the fallback
+    // rather than a nicety.
     const s = b.getElementsByTagName(e)[0]
     if (s?.parentNode) s.parentNode.insertBefore(t, s)
     else b.head.appendChild(t)
@@ -50,8 +54,22 @@ export function initMetaPixel(): boolean {
   /* eslint-enable */
 
   window.fbq?.('init', pixelId)
-  window.fbq?.('track', 'PageView')
   return true
+}
+
+/**
+ * Fires PageView.
+ *
+ * NOT folded into `initMetaPixel` any more, and that separation is the whole point of
+ * this pass. This is a single-page app: after the first load, a route change moves the
+ * visitor to a new page without a new document, so nothing re-fires the pixel's own
+ * automatic PageView. Meta then reports one page view per SESSION rather than per page,
+ * and `/tickets` — which visitors reach by a client-side redirect from `/` — records
+ * none of its own. PageTracking calls this once per distinct path instead.
+ */
+export function trackPageView(): void {
+  if (!initialized || typeof window === 'undefined') return
+  window.fbq?.('track', 'PageView')
 }
 
 /**

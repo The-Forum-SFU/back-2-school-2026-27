@@ -2,8 +2,6 @@ import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { FONT } from '../assets'
 import { LISTS, resolveListPhase, formatShortDate, type ListPhase, type TicketType } from '../config/event'
-import { captureAttribution } from '../lib/attribution'
-import { initMetaPixel } from '../lib/metaPixel'
 import { fetchListStatus, type SignupResponse } from '../lib/signupApi'
 import { riseIn } from '../lib/motion'
 import { useViewport } from '../lib/viewport'
@@ -52,11 +50,6 @@ export default function ListSection({ ticketType }: { ticketType: TicketType }) 
   const [serverPhase, setServerPhase] = useState<ListPhase | null>(null)
   /** Set once the visitor edits any field. Freezes the poll — see the effect below. */
   const [formDirty, setFormDirty] = useState(false)
-
-  useEffect(() => {
-    captureAttribution()
-    initMetaPixel()
-  }, [])
 
   useEffect(() => {
     let cancelled = false

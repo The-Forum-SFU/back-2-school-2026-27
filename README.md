@@ -57,11 +57,41 @@ clock are not left sitting across the artwork.
 | [src/components/KeyArt.tsx](src/components/KeyArt.tsx) | Poster with the teaser resting on it, on the outro |
 | [src/components/LandingBottom.tsx](src/components/LandingBottom.tsx) | What `/` puts on the paper sheet: the form, or the tickets |
 | [src/theme.ts](src/theme.ts) | The REWIND palette, sampled off the poster |
+| [src/components/PageTracking.tsx](src/components/PageTracking.tsx) | Meta Pixel + ad attribution, for every route |
 
 GSAP owns exactly one thing: sliding the panel up over the first viewport
 (`ScrollTrigger`, `scrub: true`). Everything else is read from `scrollY` inside
 one RAF loop, so no frame ever renders with stale positions. Motion handles only
 the staggered entry animations — logo 0s, nav 0.15s, caption 0.3s, info 0.45s.
+
+## The Meta Pixel
+
+Mounted once, at the router root, by
+[PageTracking](src/components/PageTracking.tsx). It used to be initialised inside
+`ListSection`, which is a section of the signup form, so the pixel existed only on the two
+routes that render one. `/tickets` fired nothing, and that is the page every ad points at
+from the drop onward.
+
+Two separate problems came with that, and the second is easy to miss: this is a
+single-page app, so the pixel's own automatic PageView runs once per DOCUMENT. Every route
+change after that is invisible to it. Meta was being told about one page per session.
+`trackPageView()` is called per route now, and `initMetaPixel` no longer fires PageView
+itself — the two jobs are split so exactly one thing decides when a page view happened.
+
+**Paths that redirect do not report a view.** `isTransient` in that file lists them, and
+it matters because both redirects sit on the paid path: after the drop, an ad click on `/`
+renders `/`, forwards to `/tickets`, and lands. That is one visit, and counting the
+doorway would inflate precisely the traffic being paid for. It reads the SAME
+`useTicketsLive()` the two routes redirect on rather than re-deriving it, so the tracker
+cannot disagree with the router.
+
+`VITE_META_PIXEL_ID` absent means every function here no-ops, so a preview deploy without
+one behaves like the site minus the reporting.
+
+If you verify this with a headless browser, send a normal User-Agent. `fbevents.js`
+accepts the event, counts it, and then silently declines to put it on the wire when it
+thinks it is looking at automation — the pixel appears fully initialised and no
+`facebook.com/tr` request is ever made. That is the tool, not the site.
 
 ## The ticket drop, and the one thing that changes by itself
 

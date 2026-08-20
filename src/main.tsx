@@ -2,6 +2,7 @@ import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './index.css'
+import PageTracking from './components/PageTracking'
 import { ROUTES } from './routes'
 
 /**
@@ -25,6 +26,13 @@ const Fallback = <div style={{ position: 'fixed', inset: 0, background: '#fff' }
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      {/*
+        INSIDE the router and OUTSIDE Suspense, so a PageView is not withheld while a
+        route's chunk downloads, and so it survives every route change rather than
+        mounting and unmounting with one page. Not lazy: it is a few lines with no
+        dependencies, and the whole point is that it is there before anything else is.
+      */}
+      <PageTracking />
       <Suspense fallback={Fallback}>
         <Routes>
           <Route path={ROUTES.LANDING} element={<Landing />} />
