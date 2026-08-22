@@ -241,14 +241,19 @@ export const EVENT = {
    * manual override on top of it: one switch to pull every ticket link at once if
    * TicketWeb is not ready, shared by the header control, the hero pill and the section.
    *
-   * `url` is the link out and is the only one of the two that is load-bearing. `embedUrl`
-   * is the iframe src and is treated as an enhancement: TicketWeb sends no
-   * X-Frame-Options and no frame-ancestors directive, so the frame does render, but a
-   * third-party checkout in an iframe inside Instagram's in-app browser fails often
-   * enough that TicketsSection always shows the plain link alongside it.
+   * `url` is the link out, and it is the only one of the two that anything renders. Every
+   * ticket control on the site is now a plain link to it: the header control, the hero rail
+   * pill, and the guestlist's closed panel.
    *
-   * `?theme=Blueprint_` is TicketWeb's own embeddable theme, which is why one URL serves
-   * both jobs.
+   * ⚠️ `embedUrl` IS NO LONGER FRAMED BY ANYTHING. The iframe checkout, and the component
+   * that drew it, were removed when /tickets became a link-out page — a third-party checkout
+   * framed inside Instagram's in-app browser failed often enough that the escape hatch
+   * beside it was doing most of the work. It is kept ONLY because `ticketsAvailable()` below
+   * reads it, and that predicate is half of what `/` and `/tickets` redirect on. Emptying it
+   * is safe; adding a frame back is not a one-line change.
+   *
+   * `?theme=Blueprint_` is TicketWeb's own embeddable theme, left on the URL because it is
+   * a perfectly good page to land on.
    */
   tickets: {
     enabled: true,
@@ -383,6 +388,46 @@ export const HERO_COPY = {
    * the other place the same moment is named.
    */
   countdownLabel: 'Tickets drop in',
+}
+
+/**
+ * The two-field mailing-list strip at the end of /tickets.
+ *
+ * A separate block from CONSENT_COPY below, and the difference is the point. That wording
+ * sits beside an OPTIONAL checkbox, so it has to describe an offer someone may decline.
+ * This form has no checkbox: the sentence states the agreement as a condition of signing
+ * up, and pressing the button is the act of agreeing. That is what lets the list behind it
+ * be mailed without a segment filter — see the note on SUBSCRIBE_LIST_ENV in
+ * api/_lib/brevo.ts.
+ *
+ * NO MENTION OF SMS, deliberately. The pre-drop form's consent line covers "email and SMS"
+ * because it collects a phone number. This one collects a first name and an address, so
+ * asking agreement for messages that can never be sent would be asking for something the
+ * page cannot do.
+ *
+ * The sentence is split in three so "Privacy Policy" can be a real link inside it. It reads
+ * as one sentence and must keep reading as one: `{privacyNotice} <a>{link}</a>{after}`, with
+ * the comma living at the head of `privacyNoticeAfter`. SignupForm's own renderer puts a
+ * period after the link instead, which is why this cannot reuse it.
+ *
+ * `successBody` promises NOTHING about an inbox, unlike CONFIRMATION_BODY. Nothing on this
+ * path sends mail: the contact lands on the post-drop list and whether anything reaches them
+ * depends on an automation that has to be built in Brevo. Do not add "check your inbox" here
+ * until one exists.
+ */
+export const OUTRO_SIGNUP_COPY = {
+  eyebrow: 'Stay in the loop',
+  firstNameLabel: 'First name',
+  emailLabel: 'Email',
+  submitLabel: 'Join',
+  submittingLabel: 'Sending',
+  successBody: 'You are on the list.',
+
+  privacyNotice: 'By signing up, you are agreeing to our',
+  privacyLinkText: 'Privacy Policy',
+  privacyHref: ROUTES.PRIVACY,
+  privacyNoticeAfter:
+    ', and agree to receiving promotional emails from The Forum. You can unsubscribe anytime.',
 }
 
 /**

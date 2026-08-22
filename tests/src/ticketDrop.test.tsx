@@ -7,7 +7,7 @@ import { act, render, renderHook, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LandingBottom from '../../src/components/LandingBottom'
-import TicketsSection from '../../src/components/TicketsSection'
+import Tickets from '../../src/pages/Tickets'
 import {
   EVENT,
   hasDropped,
@@ -63,6 +63,24 @@ function renderAt(iso: string) {
   return render(
     <MemoryRouter>
       <LandingBottom />
+    </MemoryRouter>,
+  )
+}
+
+/**
+ * The whole `/tickets` route, shell and all.
+ *
+ * Rendered as a page rather than as its parts, because the thing worth guarding is a
+ * COMPOSITION: what the header and the hero rail do is decided by whether this route handed
+ * LandingShell a `bottom` section, not by anything either control is passed directly. A test
+ * that rendered the controls in isolation would keep passing through exactly the change it
+ * exists to catch.
+ */
+function renderTicketsAt(iso: string) {
+  vi.setSystemTime(new Date(iso))
+  return render(
+    <MemoryRouter initialEntries={['/tickets']}>
+      <Tickets />
     </MemoryRouter>,
   )
 }
@@ -138,26 +156,73 @@ describe('before the drop', () => {
 })
 
 describe('once the drop lands', () => {
-  it('sells through the frame, with an escape hatch above it', () => {
-    const { container } = render(<TicketsSection vp={desktop} />)
-    const frame = screen.getByTitle('Buy tickets')
-    expect(frame).toHaveAttribute('src', EVENT.tickets.embedUrl)
+  /*
+    The page LINKS OUT. It used to embed TicketWeb's checkout in an iframe on a sheet of
+    paper at the end of the scroll, with a plain link above the frame as the escape hatch
+    for when it came up blank — which, inside Instagram's in-app browser, it did often
+    enough that the hatch was carrying the page. Both are gone.
+  */
+  it('frames nothing and sells nothing on its own page', () => {
+    renderTicketsAt(DROP_UTC)
+    expect(screen.queryByTitle('Buy tickets')).toBeNull()
+    expect(document.querySelector('iframe')).toBeNull()
+  })
 
-    // A framed third-party checkout inside Instagram's in-app browser is the single most
-    // likely thing on this page to render blank, and a blank box is a dead end.
-    const link = screen.getByRole('link', { name: /Open in external tab/ })
-    expect(link).toHaveAttribute('href', EVENT.tickets.url)
-    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  /*
+    THE HALF THAT IS EASY TO BREAK. Every ticket control reads `hasBottom`, which
+    LandingShell derives from whether the route passed a `bottom` section. Putting one back
+    turns all of these into scroll buttons pointed at a page that no longer has a checkout
+    on it, and nothing in Tickets.tsx would have to change for that to happen.
+  */
+  it('makes every ticket control a link out rather than a scroll', () => {
+    renderTicketsAt(DROP_UTC)
 
-    /*
-      ABOVE the frame, and this is the half worth asserting. Someone staring at a blank
-      white box has no reason to scroll past the thing that failed in order to find the
-      fix, so a link underneath it is a link they never see. DOCUMENT_POSITION_FOLLOWING
-      means the frame comes after the link in document order.
-    */
-    const order = link.compareDocumentPosition(frame)
-    expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(container.textContent).not.toMatch(/Not loading/)
+    const links = screen.getAllByRole('link', { name: /TICKETS/i })
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link).toHaveAttribute('href', EVENT.tickets.url)
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+
+    // The arrow is what promises a move down the page. Nothing on this route may wear one.
+    expect(screen.queryByRole('button', { name: /TICKETS.*\u2193/ })).toBeNull()
+    // And there is no paper sheet left for anything to travel to.
+    expect(document.getElementById('signup')).toBeNull()
+  })
+
+  /* What replaces it: two fields on the outro screen itself. */
+  it('carries the mailing-list strip on the outro instead', () => {
+    renderTicketsAt(DROP_UTC)
+    expect(screen.getByLabelText('First name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    // Queried by TEXT rather than by accessible name, and that is not a workaround. The
+    // layer is `visibility: hidden` at rest, so the accessible-name algorithm skips its text
+    // entirely and this button's computed name is the empty string. The next test is that
+    // same fact, asserted on purpose.
+    expect(screen.getByText('Join').tagName).toBe('BUTTON')
+  })
+
+  /*
+    AND IT STARTS INERT, which is the half that is easy to lose.
+
+    The strip is in the DOM from the first frame but sits on a fixed layer four viewports
+    below where the visitor is standing. useScrollEngine drives its `visibility` and
+    `pointerEvents` off the tail of the outro ramp; until then it must be out of the
+    accessibility tree and out of the tab order, or someone tabbing through the hero lands
+    in a form they cannot see.
+
+    `hidden: true` above and its absence here are the whole assertion: the elements exist,
+    and the default accessibility-aware query cannot reach them.
+  */
+  it('leaves that strip out of the tab order until the outro arrives', () => {
+    renderTicketsAt(DROP_UTC)
+
+    expect(screen.queryByRole('button', { name: 'Join' })).toBeNull()
+
+    const layer = document.getElementById('outro-signup')
+    expect(layer).not.toBeNull()
+    expect(layer).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none', opacity: '0' })
   })
 
   it('goes live on its own, with nobody reloading anything', () => {
@@ -265,17 +330,19 @@ describe('when there is nothing to sell with', () => {
     expect(ticketsLive(new Date(DROP_UTC))).toBe(true)
   })
 
-  it('falls back to the plain link when only the frame is missing', () => {
+  /*
+    `embedUrl` is no longer rendered by anything, but it is still half of what
+    `ticketsAvailable()` reads, and that predicate is what both routes redirect on. So it
+    stays load-bearing in exactly one way: emptying it must not take the page down.
+  */
+  it('still sells with the frame URL emptied, since nothing frames it any more', () => {
     overrideTicket('embedUrl', '')
-    render(<TicketsSection vp={desktop} />)
+    expect(ticketsAvailable()).toBe(true)
 
-    expect(screen.queryByTitle('Buy tickets')).toBeNull()
-    // Promoted to the call to action, because with no frame there is nothing else to be.
-    expect(screen.getByRole('link', { name: 'Get tickets' })).toHaveAttribute(
+    renderTicketsAt(DROP_UTC)
+    expect(screen.getAllByRole('link', { name: /TICKETS/i })[0]).toHaveAttribute(
       'href',
       EVENT.tickets.url,
     )
-    // And the escape hatch is gone, since there is nothing left to escape.
-    expect(screen.queryByRole('link', { name: /Open in external tab/ })).toBeNull()
   })
 })

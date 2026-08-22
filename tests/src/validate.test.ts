@@ -6,11 +6,13 @@ import {
   isRealDate,
   SFU_EMAIL_ERROR,
   validateSignup,
+  validateSubscribe,
   type SignupValues,
 } from '../../src/lib/validate'
 import {
   SFU_EMAIL_ERROR as SERVER_SFU_EMAIL_ERROR,
   validateSignup as validateOnServer,
+  validateSubscribe as validateSubscribeOnServer,
 } from '../../api/_lib/validate'
 
 /**
@@ -287,6 +289,67 @@ describe('twin-file drift', () => {
         privacyAccepted: true,
         consentOptIn: true,
       }).ok,
+    ).toBe(true)
+  })
+})
+
+/**
+ * The second hand-synced pair, behind the two-field form on /tickets.
+ *
+ * Same arrangement and same hazard as the signup twins above: two copies kept in step by
+ * hand, so the only thing stopping them drifting apart is a test that runs both.
+ */
+describe('subscribe twin-file drift', () => {
+  const CASES: Array<[string, { firstName: string; email: string }]> = [
+    ['a good one', { firstName: 'Jordan', email: 'jordan@example.com' }],
+    ['no first name', { firstName: '', email: 'jordan@example.com' }],
+    ['a whitespace first name', { firstName: '   ', email: 'jordan@example.com' }],
+    ['an over-long first name', { firstName: 'x'.repeat(81), email: 'a@b.com' }],
+    ['no email', { firstName: 'Jordan', email: '' }],
+    ['a malformed email', { firstName: 'Jordan', email: 'jordan@' }],
+    ['a single-letter TLD', { firstName: 'Jordan', email: 'jordan@example.c' }],
+    ['an SFU address', { firstName: 'Jordan', email: 'jordan@sfu.ca' }],
+    ['an SFU subdomain', { firstName: 'Jordan', email: 'jordan@mail.sfu.ca' }],
+    ['a lookalike domain', { firstName: 'Jordan', email: 'jordan@notsfu.ca' }],
+    ['an address needing normalising', { firstName: ' Jordan ', email: ' A@B.COM ' }],
+  ]
+
+  it.each(CASES)('agrees on %s', (_label, input) => {
+    const client = validateSubscribe(input)
+    const server = validateSubscribeOnServer(input)
+
+    expect(server.ok).toBe(client.ok)
+    if (server.ok) {
+      // Both sides must also agree on what actually gets stored, not just on pass/fail.
+      expect(server.normalized.email).toBe(input.email.trim().toLowerCase())
+      expect(server.normalized.firstName).toBe(input.firstName.trim())
+    }
+  })
+
+  /*
+    The SFU rule has to hold on EVERY form or it holds on none: the point is that an address
+    collected anywhere on this site is one that can actually receive mail. Both twins reuse
+    their own file's constant, so this is the test that catches one of them being given a
+    private copy of the regex.
+  */
+  it('refuses SFU addresses here too, with the same shared wording', () => {
+    const client = validateSubscribe({ firstName: 'Jordan', email: 'jordan@sfu.ca' })
+    const server = validateSubscribeOnServer({ firstName: 'Jordan', email: 'jordan@sfu.ca' })
+
+    expect(client.ok).toBe(false)
+    expect(server.ok).toBe(false)
+    if (!client.ok) expect(client.fieldErrors.email).toBe(SFU_EMAIL_ERROR)
+    if (!server.ok) expect(server.fieldErrors.email).toBe(SERVER_SFU_EMAIL_ERROR)
+  })
+
+  /*
+    It asks for two fields and must check exactly two. Nothing here collects a birthdate, so
+    neither twin may grow an age gate: an 18-year-old can be on a mailing list.
+  */
+  it('has no age gate to fail, on either side', () => {
+    expect(validateSubscribe({ firstName: 'Jordan', email: 'kid@example.com' }).ok).toBe(true)
+    expect(
+      validateSubscribeOnServer({ firstName: 'Jordan', email: 'kid@example.com' }).ok,
     ).toBe(true)
   })
 })

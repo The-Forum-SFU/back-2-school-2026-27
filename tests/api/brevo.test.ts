@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { syncToBrevo, type BrevoContact } from '../../api/_lib/brevo'
+import { subscribeToBrevo, syncToBrevo, type BrevoContact } from '../../api/_lib/brevo'
 
 /**
  * The Brevo contact sync.
@@ -39,6 +39,10 @@ function respond(status: number, body: string | null = null) {
 beforeEach(() => {
   process.env.BREVO_API_KEY = 'test-key'
   process.env.BREVO_LIST_ID_PRESALE = '7'
+  // Two different mailing lists on the same account. Both are set here precisely so the
+  // tests below can catch a subscribe that posts to the wrong one.
+  process.env.BREVO_LIST_ID_MAILING = '11'
+  process.env.BREVO_LIST_ID_JUST_MAILING = '12'
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(201, '{"id":42}')))
   // The 400 paths log on purpose; keep the run readable.
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -49,6 +53,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
   delete process.env.BREVO_API_KEY
   delete process.env.BREVO_LIST_ID_PRESALE
+  delete process.env.BREVO_LIST_ID_MAILING
+  delete process.env.BREVO_LIST_ID_JUST_MAILING
 })
 
 describe('the request', () => {
@@ -158,5 +164,67 @@ describe('never taking a committed signup down with it', () => {
   it('swallows a 2xx whose body is not the JSON it claims to be', async () => {
     vi.mocked(fetch).mockResolvedValue(respond(201, '<!doctype html>'))
     expect(await syncToBrevo(CONTACT)).toEqual({ synced: false, reason: 'exception' })
+  })
+})
+
+/**
+ * The two-field subscribe, behind the form at the end of /tickets.
+ *
+ * A separate function from `syncToBrevo` above rather than a flag on it, and these tests
+ * pin the two differences that make it one: which list it writes to, and the fact that it
+ * reports failure instead of absorbing it.
+ */
+describe('subscribeToBrevo', () => {
+  const PERSON = { firstName: 'Jordan', email: 'jordan@example.com' }
+
+  /*
+    THE ONE MOST LIKELY TO BE GOT WRONG LATER, because both names are plausible and nothing
+    at runtime complains. BREVO_LIST_ID_MAILING is the PRE-drop list, whose opt-in is
+    optional, so it is not a lawful send list on its own. Posting this form's contacts there
+    would quietly mix express consent in with people who declined it.
+  */
+  it('posts to the post-drop list and not the pre-drop one', async () => {
+    await subscribeToBrevo(PERSON)
+    expect(sentBody().listIds).toEqual([12])
+    expect(sentBody().listIds).not.toContain(11)
+  })
+
+  it('sends only what the form collects', async () => {
+    await subscribeToBrevo(PERSON)
+    const body = sentBody()
+    expect(body.email).toBe('jordan@example.com')
+    expect(body.updateEnabled).toBe(true)
+    // Exactly these two. LASTNAME, SMS and BIRTH_DATE are not collected, and sending them
+    // empty would blank whatever a pre-drop signup already had on the shared contact.
+    expect(body.attributes).toEqual({ FIRSTNAME: 'Jordan', OPT_IN: true })
+  })
+
+  /*
+    Not assumed. The sentence under the submit button states the agreement as a condition of
+    signing up, so pressing it IS the consent — which is the whole reason this list can be
+    mailed without a segment filter. If the copy ever loses that sentence, this has to go
+    with it.
+  */
+  it('records the opt-in as given', async () => {
+    await subscribeToBrevo(PERSON)
+    expect(sentBody().attributes.OPT_IN).toBe(true)
+  })
+
+  it('reports a failure rather than absorbing it, unlike the signup sync', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(respond(400, '{"code":"invalid_parameter"}'))
+    expect(await subscribeToBrevo(PERSON)).toEqual({ synced: false, reason: 'http_400' })
+  })
+
+  it('does not post at all with no list configured', async () => {
+    delete process.env.BREVO_LIST_ID_JUST_MAILING
+    const result = await subscribeToBrevo(PERSON)
+    expect(result.synced).toBe(false)
+    expect(result.reason).toContain('BREVO_LIST_ID_JUST_MAILING')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('never throws, whatever the network does', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('socket hang up'))
+    expect(await subscribeToBrevo(PERSON)).toEqual({ synced: false, reason: 'exception' })
   })
 })

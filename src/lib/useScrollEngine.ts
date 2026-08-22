@@ -68,6 +68,8 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
     const keyart = document.getElementById('outro-keyart')
     const caption = document.getElementById('hero-caption')
     const rail = document.getElementById('hero-rail')
+    // Present only on a route that passes LandingShell an `outro` block. See below.
+    const outroSignup = document.getElementById('outro-signup')
 
     let vh = window.innerHeight
     let maxScroll = 0
@@ -163,6 +165,28 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
         if (rail) rail.style.opacity = heroCopy
       }
 
+      /*
+        The outro's interactive block, on the TAIL of the same ramp rather than on all of it.
+
+        The late slice is not a flourish. EventInfo is visible from page load — it fades in
+        through Motion on mount, not off this ramp — and only its TRANSLATE is driven here,
+        so for the first half of the outro it is still on its way up out of the band this
+        block sits in. Fading the block in on the raw `outro` value put a form under a date
+        stamp that had not finished moving.
+
+        The two thresholds do different jobs and neither is the opacity. `visibility` takes
+        it out of the tab order and the accessibility tree, so keyboard focus cannot wander
+        into a form four viewports before it exists. `pointerEvents` waits until it is
+        essentially opaque, because a control that is on screen at 30% and already clickable
+        is a control someone taps by accident on the way past.
+      */
+      const formIn = clamp01((outro - 0.55) / 0.45)
+      if (outroSignup) {
+        outroSignup.style.opacity = `${formIn}`
+        outroSignup.style.visibility = formIn > 0.02 ? 'visible' : 'hidden'
+        outroSignup.style.pointerEvents = formIn > 0.9 ? 'auto' : 'none'
+      }
+
       // The bottom section (when a route has one) begins entering here and has fully
       // covered the viewport one viewport later. It sits above every fixed layer, so
       // it rides up over the pinned outro on its own — nothing needs animating.
@@ -191,7 +215,13 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
       // the section, so during the overlap the real system cursor is already being
       // drawn over the section — leaving the ring visible below it would show two
       // cursors at once.
-      if (cursor) cursor.style.visibility = covering ? 'hidden' : 'visible'
+      //
+      // `formIn` is the same problem arriving by the other door. The outro block sets
+      // `cursor: auto` on itself for exactly the reason above, so once it is live the system
+      // cursor is being drawn over a form while the ring is still following the pointer
+      // around. On a route with an outro block but no bottom section, `covering` is always
+      // false and this is the only thing that hides it.
+      if (cursor) cursor.style.visibility = covering || formIn > 0.9 ? 'hidden' : 'visible'
 
       raf = requestAnimationFrame(tick)
     }

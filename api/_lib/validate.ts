@@ -1,4 +1,9 @@
-import type { FieldErrors, SignupRequest } from './types.js'
+import type {
+  FieldErrors,
+  SignupRequest,
+  SubscribeFieldErrors,
+  SubscribeRequest,
+} from './types.js'
 
 /**
  * Server-side validation. **Authoritative.**
@@ -120,6 +125,50 @@ export function ageOn(dobIso: string, asOfIso: string): number {
   const monthDelta = asOf.getUTCMonth() - dob.getUTCMonth()
   if (monthDelta < 0 || (monthDelta === 0 && asOf.getUTCDate() < dob.getUTCDate())) age -= 1
   return age
+}
+
+export type NormalizedSubscribe = {
+  firstName: string
+  email: string
+}
+
+export type SubscribeValidationResult =
+  | { ok: true; normalized: NormalizedSubscribe }
+  | { ok: false; fieldErrors: SubscribeFieldErrors }
+
+/**
+ * The two-field mailing-list form on /tickets. **Authoritative**, same as its big sibling.
+ *
+ * Shares every constant with `validateSignup` above rather than restating them — same
+ * email regex, same caps, and the same @sfu.ca refusal. That last one is the important
+ * reuse: SFU's filters quarantine bulk mail, so an address collected here is an address
+ * that never receives anything, and the rule has to hold on every form or it holds on none.
+ *
+ * What it deliberately does NOT check is everything the signup form asks for. There is no
+ * last name, no phone, no birthdate and no attestation, because this collects none of them:
+ * it is a mailing list, not a door list, and nothing downstream computes an age or dials a
+ * number. See SubscribeRequest.
+ */
+export function validateSubscribe(
+  body: Partial<SubscribeRequest>,
+): SubscribeValidationResult {
+  const fieldErrors: SubscribeFieldErrors = {}
+
+  const firstName = str(body.firstName)
+  const email = str(body.email).toLowerCase()
+
+  if (!firstName) fieldErrors.firstName = 'Required'
+  else if (firstName.length > NAME_MAX) fieldErrors.firstName = 'Too long'
+
+  if (!email) fieldErrors.email = 'Required'
+  else if (email.length > EMAIL_MAX || !EMAIL_RE.test(email))
+    fieldErrors.email = 'Enter a valid email address'
+  // Ordered after the shape check so a typo'd SFU address is reported as a typo.
+  else if (SFU_EMAIL_RE.test(email)) fieldErrors.email = SFU_EMAIL_ERROR
+
+  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }
+
+  return { ok: true, normalized: { firstName, email } }
 }
 
 export function validateSignup(body: Partial<SignupRequest>): ValidationResult {

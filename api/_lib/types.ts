@@ -45,6 +45,40 @@ export type SignupRequest = {
   } | null
 }
 
+/**
+ * Raw request body for POST /api/subscribe. Every field is untrusted.
+ *
+ * Two fields and two bot traps, and that is the whole form. This is NOT a signup: it takes
+ * no ticket type, writes no Supabase row and grants nothing. It puts an address on the
+ * post-drop mailing list and that is all, which is why it has its own request type rather
+ * than a loosened `SignupRequest` — the moment they share a type, a field that is required
+ * on one becomes optional on both.
+ */
+export type SubscribeRequest = {
+  firstName: string
+  email: string
+  /** Bot trap — a real user never fills this. */
+  company?: string | null
+  /** Milliseconds between form mount and submit. */
+  elapsedMs?: number | null
+}
+
+/** Field-level errors for the subscribe form, keyed by its two field names. */
+export type SubscribeFieldErrors = Partial<Record<'firstName' | 'email', string>>
+
+/**
+ * Every terminal outcome the subscribe form sees.
+ *
+ * No `already_registered`. Brevo's upsert is idempotent, so a second submission of the same
+ * address is a success from every angle that matters here — and unlike the guestlist there
+ * is no spot to have already claimed, so telling someone they are "already" on a mailing
+ * list answers a question nobody asked.
+ */
+export type SubscribeResult =
+  | { status: 'subscribed' }
+  | { status: 'invalid'; fieldErrors: SubscribeFieldErrors }
+  | { status: 'error'; message: string }
+
 /** Field-level errors, keyed by the client's field names. */
 export type FieldErrors = Partial<
   Record<

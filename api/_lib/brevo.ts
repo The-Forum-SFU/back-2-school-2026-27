@@ -29,6 +29,22 @@ const LIST_ID_ENV: Record<TicketType, string | undefined> = {
   'table-service': 'BREVO_LIST_ID_TABLE',
 }
 
+/**
+ * The post-drop list, behind the two-field form on /tickets.
+ *
+ * NOT in the map above and not a sixth key on it: that record is keyed by `TicketType`, and
+ * this flow has no ticket type. It is a mailing list reached from a page that sells through
+ * TicketWeb, so there is no list config, no window and no capacity behind it.
+ *
+ * Also NOT the same list as BREVO_LIST_ID_MAILING, which is the PRE-drop one. Keeping them
+ * apart is what makes this one sendable: the opt-in on the pre-drop form is optional, so
+ * that list is not a lawful send list on its own and anything promotional has to go to a
+ * segment filtered on OPT_IN (see the note above `attributesFor`). Everyone here submitted
+ * under copy that states the agreement in the sentence above the button, so the whole list
+ * can be mailed.
+ */
+const SUBSCRIBE_LIST_ENV = 'BREVO_LIST_ID_JUST_MAILING'
+
 export type BrevoContact = {
   firstName: string
   lastName: string
@@ -88,6 +104,67 @@ function attributesFor(contact: BrevoContact, withPhone: boolean) {
  */
 function isInvalidPhone(status: number, body: string): boolean {
   return status === 400 && /invalid phone/i.test(body)
+}
+
+export type SubscribeContact = { firstName: string; email: string }
+
+/**
+ * The two-field mailing-list subscribe, for POST /api/subscribe.
+ *
+ * ⚠️ THE ONE STRUCTURAL DIFFERENCE FROM `syncToBrevo` BELOW, AND IT IS THE WHOLE REASON THIS
+ * IS A SEPARATE FUNCTION RATHER THAN A FLAG ON THAT ONE.
+ *
+ * There, Brevo is a side effect: the Supabase row is already committed by the time it runs,
+ * so it swallows every failure and reports `synced: false` for a backfill to pick up. Here
+ * Brevo IS the write. There is no row, nothing to backfill from, and a swallowed failure
+ * would show someone a success message over an address that reached nothing at all. So this
+ * returns a plain boolean the handler turns into a real error, and the form keeps what was
+ * typed. Do not "harmonise" the two.
+ *
+ * `OPT_IN: true` is not assumed. The sentence under the submit button states the agreement
+ * as a condition of signing up, so pressing it is the consent, and the exact wording lives
+ * in OUTRO_SIGNUP_COPY in src/config/event.ts.
+ */
+export async function subscribeToBrevo(contact: SubscribeContact): Promise<BrevoResult> {
+  try {
+    const apiKey = optionalEnv('BREVO_API_KEY')
+    const listId = optionalEnv(SUBSCRIBE_LIST_ENV)
+
+    if (!apiKey) return { synced: false, reason: 'no_api_key' }
+    if (!listId) return { synced: false, reason: `no_list_id (${SUBSCRIBE_LIST_ENV})` }
+
+    const res = await fetch('https://api.brevo.com/v3/contacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+      body: JSON.stringify({
+        email: contact.email,
+        listIds: [Number(listId)],
+        // Upsert, which is what makes a second submission of the same address harmless.
+        // It also means a contact already known to Brevo from the pre-drop form is ADDED
+        // to this list rather than moved, and has FIRSTNAME and OPT_IN rewritten on the
+        // one shared contact record. Flipping OPT_IN to true is correct: they just agreed
+        // to wording that says so.
+        updateEnabled: true,
+        // No LASTNAME, SMS or BIRTH_DATE. This form collects none of them, and Brevo
+        // treats an absent attribute as "leave alone" rather than "clear".
+        attributes: { FIRSTNAME: contact.firstName, OPT_IN: true },
+      }),
+      signal: AbortSignal.timeout(2500),
+    })
+
+    if (!res.ok) {
+      console.error('[brevo] subscribe failed:', res.status, await res.text())
+      return { synced: false, reason: `http_${res.status}` }
+    }
+
+    // A 204 on update-existing has no body; a 201 on create returns { id }.
+    const text = await res.text()
+    const contactId = text ? String((JSON.parse(text) as { id?: number }).id ?? '') : undefined
+    return { synced: true, contactId: contactId || undefined }
+  } catch (err) {
+    console.error('[brevo] subscribe threw:', String(err))
+    return { synced: false, reason: 'exception' }
+  }
 }
 
 export async function syncToBrevo(contact: BrevoContact): Promise<BrevoResult> {

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { syncToBrevo } from './_lib/brevo.js'
 import { optionalEnv, requireEnv } from './_lib/env.js'
 import { hashIp, resolveIpSalt } from './_lib/hash.js'
+import { clientIp, isPlainObject, originAllowed } from './_lib/http.js'
 import { buildFbc, sendLeadEvent } from './_lib/meta.js'
 import { patchSubmission, rpc } from './_lib/supabase.js'
 import { isTicketType, type ClaimResult, type SignupRequest, type SignupResult } from './_lib/types.js'
@@ -52,13 +53,6 @@ function send(res: VercelResponse, result: SignupResult) {
   return res.status(HTTP[result.status]).json(result)
 }
 
-/** Left-most XFF entry is the client; the rest are proxies. */
-function clientIp(req: VercelRequest): string | undefined {
-  const forwarded = req.headers['x-forwarded-for']
-  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded
-  return raw?.split(',')[0]?.trim() || req.socket?.remoteAddress || undefined
-}
-
 function readCookie(req: VercelRequest, name: string): string | undefined {
   const header = req.headers.cookie
   if (!header) return undefined
@@ -67,33 +61,6 @@ function readCookie(req: VercelRequest, name: string): string | undefined {
     if (key === name) return decodeURIComponent(rest.join('='))
   }
   return undefined
-}
-
-/**
- * Same-origin guard.
- *
- * A JSON POST already needs a CORS preflight, which this endpoint doesn't answer, so a
- * browser on another site can't read the response today. This closes the case where it
- * doesn't have to: a form-encoded or no-preflight variant fired from somewhere else
- * still reaches the handler, and "the attacker can't read the reply" is no comfort
- * when the side effect is the point.
- *
- * A missing Origin is allowed. Non-browser clients omit it entirely, and this endpoint
- * is public by design — the guard is about not being driven BY another origin, not
- * about proving the caller is a browser.
- */
-function originAllowed(req: VercelRequest): boolean {
-  const raw = req.headers.origin
-  const origin = Array.isArray(raw) ? raw[0] : raw
-  if (!origin) return true
-  const host = req.headers.host
-  if (!host) return false
-  try {
-    return new URL(origin).host === host
-  } catch {
-    // An unparseable Origin is a malformed or hand-built request, not a browser.
-    return false
-  }
 }
 
 /** Drops everything the browser has no use for, which is everything except the status. */
@@ -122,11 +89,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ status: 'error', message: 'Forbidden' })
   }
 
-  // A JSON array, string or null all parse into `req.body` without being objects, and
-  // every property read below would then be undefined — which reads as "empty form"
-  // rather than "malformed request". Reject it as what it is.
+  // See isPlainObject: an array, string or null would read as "empty form" rather than
+  // "malformed request" if every property read off it came back undefined.
   const raw: unknown = req.body ?? {}
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+  if (!isPlainObject(raw)) {
     return send(res, { status: 'invalid', fieldErrors: { email: 'Please try again' } })
   }
   const body = raw as Partial<SignupRequest>

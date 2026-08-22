@@ -40,9 +40,25 @@ import { useScrollEngine } from '../lib/useScrollEngine'
  */
 export default function LandingShell({
   bottom,
+  outro,
   rail = 'cue',
 }: {
   bottom?: ReactNode
+  /**
+   * A block placed ON the outro screen itself, in the band the footer and EventInfo leave
+   * between them. Fades in on the tail of the outro ramp and is inert until it does.
+   *
+   * THE OTHER PLACE A ROUTE CAN PUT SOMETHING, and deliberately not a variant of `bottom`.
+   * That prop is a sheet of paper that rides up OVER the whole fixed stack, which ends the
+   * scroll on a new surface and takes the footer with it. This one ends the scroll where the
+   * scroll already ended. `/tickets` uses it because it has nothing to sell on a page of its
+   * own any more: it links out to TicketWeb, so the last screen is the artwork plus one
+   * short thing to do.
+   *
+   * The two are not mutually exclusive in code, but a route wanting both would be a route
+   * showing two forms, so nothing passes both today.
+   */
+  outro?: ReactNode
   /**
    * 'cue' jumps to the form below. 'countdown' counts down to the ticket drop.
    *
@@ -157,6 +173,53 @@ export default function LandingShell({
         )}
         <EventInfo vp={vp} />
         <Footer vp={vp} />
+
+        {/*
+          The outro's one interactive block, in the gap between the footer and EventInfo.
+
+          FOUR THINGS HERE ARE LOAD-BEARING, and three of them are the reason the paper
+          section below is a SIBLING of the spacer rather than a child of it. This one has to
+          be a child — it belongs to the outro, which is the fixed stack — so it pays those
+          costs explicitly instead of escaping them.
+
+          1. NO `mixBlendMode`. Every other layer at this z-index blends with `exclusion`
+             (see `overlayBase` in Overlay.tsx), and form controls in an exclusion group
+             invert into nonsense. This is a plain layer, like the bear badge, which is full
+             colour for the same reason.
+
+          2. `userSelect: 'text'` and `cursor: 'auto'`. The spacer sets `none` for both,
+             inline, and both inherit — a nested form would be unselectable and cursorless.
+
+          3. Inert until it arrives. `opacity`, `visibility` and `pointerEvents` are all
+             driven per frame by useScrollEngine off the tail of the outro ramp. Without the
+             last two this is an invisible tap target and a run of tab stops sitting over the
+             hero for the entire five viewports above it.
+
+          4. The insets are the gap, measured. Desktop: the footer's top edge is around 49
+             and EventInfo finishes 166px above its `bottom: 80`, so the column runs to 246.
+             Mobile: footer top around 39, EventInfo finishes at 180. That is roughly 141px
+             of band on a small phone, and what goes in it is sized against that. See the
+             height budget note in OutroSignup.
+        */}
+        {outro && (
+          <div
+            id="outro-signup"
+            style={{
+              position: 'fixed',
+              zIndex: 20,
+              ...(vp.isDesktop
+                ? { right: 32, bottom: 64, width: 330 }
+                : { left: 16, right: 16, bottom: 46 }),
+              opacity: 0,
+              visibility: 'hidden',
+              pointerEvents: 'none',
+              userSelect: 'text',
+              cursor: 'auto',
+            }}
+          >
+            {outro}
+          </div>
+        )}
 
         {hasCursor && <CustomCursor />}
       </div>

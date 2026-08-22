@@ -40,6 +40,23 @@ if (typeof document !== 'undefined') {
   }
 
   /*
+   * jsdom ships no ResizeObserver, and useScrollEngine observes the gallery wrapper to
+   * re-measure when the grid reflows. Unlike IntersectionObserver above, the engine does
+   * NOT guard on it, so its absence throws during the mount effect and takes the whole
+   * shell down — which is why any test that renders a full route needs this.
+   *
+   * Observes nothing and never fires. Layout never changes in jsdom, so a re-measure would
+   * have nothing to re-measure; a test that wants one calls the callback itself.
+   */
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+
+  /*
    * jsdom ships no matchMedia, and useViewport calls it on first render — so every
    * component that reads the viewport throws before it renders anything.
    *

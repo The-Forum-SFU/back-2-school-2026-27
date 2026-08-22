@@ -99,6 +99,53 @@ export function composeDob(v: SignupValues): string {
   return `${v.dobYear}-${pad(v.dobMonth)}-${pad(v.dobDay)}`
 }
 
+export type SubscribeValues = {
+  firstName: string
+  email: string
+}
+
+export type SubscribeFieldName = keyof SubscribeValues
+export type SubscribeFieldErrors = Partial<Record<SubscribeFieldName, string>>
+
+export type SubscribeValidationResult =
+  | { ok: true }
+  | { ok: false; fieldErrors: SubscribeFieldErrors }
+
+export const EMPTY_SUBSCRIBE_VALUES: SubscribeValues = {
+  firstName: '',
+  email: '',
+}
+
+/**
+ * The two-field mailing-list form on /tickets.
+ *
+ * TWIN: `validateSubscribe` in api/_lib/validate.ts is the authoritative copy, and the
+ * hand-sync rule at the top of this file applies to this function too.
+ *
+ * Reuses this file's own constants rather than restating them, which is what keeps the
+ * @sfu.ca refusal true on every form on the site instead of on most of them. There is no age
+ * check here and there is nothing to check it against: this form takes no birthdate, because
+ * a mailing list has no door to be old enough for.
+ */
+export function validateSubscribe(v: SubscribeValues): SubscribeValidationResult {
+  const fieldErrors: SubscribeFieldErrors = {}
+
+  const firstName = v.firstName.trim()
+  const email = v.email.trim().toLowerCase()
+
+  if (!firstName) fieldErrors.firstName = 'Required'
+  else if (firstName.length > NAME_MAX) fieldErrors.firstName = 'Too long'
+
+  if (!email) fieldErrors.email = 'Required'
+  else if (email.length > EMAIL_MAX || !EMAIL_RE.test(email))
+    fieldErrors.email = 'Enter a valid email address'
+  // Ordered after the shape check so a typo'd SFU address is reported as a typo.
+  else if (SFU_EMAIL_RE.test(email)) fieldErrors.email = SFU_EMAIL_ERROR
+
+  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }
+  return { ok: true }
+}
+
 export function validateSignup(
   v: SignupValues,
   opts: { minAge: number; doorDate: string },
