@@ -21,6 +21,18 @@ const SYMBOL_CYCLE_MS = 450
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
 
+/**
+ * How much of the first viewport the opening screen takes to clear, on a route that opens
+ * on the outro.
+ *
+ * Half, and not the whole viewport the panel takes to arrive. The gallery cards start
+ * scaling up from roughly 0.4vh — see the card loop below — so a ramp that ran the full
+ * viewport would have the artwork still at a third of its opacity while photos were already
+ * coming up through it. Finishing early costs a short stretch of flat ground, which is what
+ * the panel is anyway.
+ */
+const INTRO_SPAN = 0.5
+
 type Options = {
   spacerRef: RefObject<HTMLDivElement | null>
   panelRef: RefObject<HTMLDivElement | null>
@@ -33,6 +45,15 @@ type Options = {
    * cursor stay put all the way to the bottom.
    */
   hasBottom: boolean
+  /**
+   * Whether this route OPENS on the outro screen rather than on the hero.
+   *
+   * `/tickets` does: it has no hero canvas at all, so the artwork, the ground, the footer
+   * and the outro block are what somebody lands on, the gallery is what they scroll INTO,
+   * and the same screen closes the page. See `intro` in the tick below — the whole of the
+   * difference is one extra ramp.
+   */
+  openOnOutro: boolean
 }
 
 type Card = { el: HTMLElement; top: number; height: number }
@@ -51,7 +72,14 @@ type Card = { el: HTMLElement; top: number; height: number }
  * force a layout flush per card per frame, and would also inherit GSAP's scrub
  * smoothing mid-transition.
  */
-export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom }: Options) {
+export function useScrollEngine({
+  spacerRef,
+  panelRef,
+  wrapRef,
+  cols,
+  hasBottom,
+  openOnOutro,
+}: Options) {
   useEffect(() => {
     const spacer = spacerRef.current
     const panel = panelRef.current
@@ -136,9 +164,31 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
       if (canvas) canvas.style.visibility = y > vh ? 'hidden' : 'visible'
 
       const outro = clamp01((y - vh - maxScroll) / Math.max(1, vh - 100))
-      if (overlay) overlay.style.opacity = `${outro}`
-      if (info) info.style.transform = `translate3d(0, ${-outroOffset * outro}px, 0)`
-      if (footer) footer.style.opacity = `${outro}`
+
+      /*
+        THE OUTRO SCREEN'S VISIBILITY, WHICH IS NOT THE SAME THING AS THE OUTRO RAMP.
+
+        On a route with a hero the two are identical and `intro` is a constant zero, so
+        everything below reads exactly as it did. On a route that opens on the outro there
+        is no hero to cover, and this screen is the FIRST thing as well as the last: it
+        starts at full, clears over the opening half-viewport as the gallery panel arrives,
+        and comes back on the same ramp at the end.
+
+        One value rather than a flag on each layer. The ground, the artwork, the footer, the
+        date stamp's lift and the outro block all read it, and they have to move together —
+        a layer left on the raw `outro` would be missing from the landing screen while
+        everything around it was there.
+
+        `max` and not a sum: the two ramps never overlap (the intro is finished half a
+        viewport in, the outro cannot start before `vh + maxScroll`), so this is the union
+        of them and never runs past 1.
+      */
+      const intro = openOnOutro ? clamp01(1 - y / Math.max(1, vh * INTRO_SPAN)) : 0
+      const art = Math.max(intro, outro)
+
+      if (overlay) overlay.style.opacity = `${art}`
+      if (info) info.style.transform = `translate3d(0, ${-outroOffset * art}px, 0)`
+      if (footer) footer.style.opacity = `${art}`
 
       /*
         The key art fades UP with the ground it sits on, and the hero's own copy fades
@@ -159,8 +209,8 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
         note on Caption and HeroRail in Overlay.tsx for why that distinction matters.
       */
       if (keyart) {
-        keyart.style.opacity = `${outro}`
-        const heroCopy = `${1 - outro}`
+        keyart.style.opacity = `${art}`
+        const heroCopy = `${1 - art}`
         if (caption) caption.style.opacity = heroCopy
         if (rail) rail.style.opacity = heroCopy
       }
@@ -180,7 +230,7 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
         essentially opaque, because a control that is on screen at 30% and already clickable
         is a control someone taps by accident on the way past.
       */
-      const formIn = clamp01((outro - 0.55) / 0.45)
+      const formIn = clamp01((art - 0.55) / 0.45)
       if (outroSignup) {
         outroSignup.style.opacity = `${formIn}`
         outroSignup.style.visibility = formIn > 0.02 ? 'visible' : 'hidden'
@@ -216,12 +266,20 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
       // drawn over the section — leaving the ring visible below it would show two
       // cursors at once.
       //
-      // `formIn` is the same problem arriving by the other door. The outro block sets
-      // `cursor: auto` on itself for exactly the reason above, so once it is live the system
-      // cursor is being drawn over a form while the ring is still following the pointer
-      // around. On a route with an outro block but no bottom section, `covering` is always
-      // false and this is the only thing that hides it.
-      if (cursor) cursor.style.visibility = covering || formIn > 0.9 ? 'hidden' : 'visible'
+      // SCROLL POSITION IS THE ONLY THING THAT BELONGS IN THIS RULE.
+      //
+      // It used to also hide the ring whenever `formIn > 0.9`, for what looks like the same
+      // two-cursors reason: the outro block sets `cursor: auto` on itself, so once it is
+      // live the system cursor is being drawn over a form. But that block is a 330px column
+      // in one corner and this property hides the ring across the WHOLE viewport — and on
+      // `/tickets` the outro is at full from the very first frame, which puts `formIn` at 1
+      // before anybody has scrolled. The screen that route opens on had no pointer on it at
+      // all, anywhere outside that column, which is the one screen carrying the offer.
+      //
+      // Where the pointer happens to BE is the pointer's own business, not the scroll's.
+      // CustomCursor hides itself over `[data-system-cursor]` regions and writes `opacity`
+      // to do it, so the two owners never clobber each other. See the note there.
+      if (cursor) cursor.style.visibility = covering ? 'hidden' : 'visible'
 
       raf = requestAnimationFrame(tick)
     }
@@ -275,5 +333,5 @@ export function useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom 
       slide.scrollTrigger?.kill()
       slide.kill()
     }
-  }, [spacerRef, panelRef, wrapRef, cols, hasBottom])
+  }, [spacerRef, panelRef, wrapRef, cols, hasBottom, openOnOutro])
 }

@@ -4,7 +4,15 @@ import CustomCursor from './CustomCursor'
 import DropCountdown from './DropCountdown'
 import HeroCanvas, { type RailOccupant } from './HeroCanvas'
 import KeyArt from './KeyArt'
-import { Caption, EventInfo, Footer, HeaderNav, LogoMark, ScrollCue } from './Overlay'
+import {
+  Caption,
+  EventInfo,
+  eventInfoLift,
+  Footer,
+  HeaderNav,
+  LogoMark,
+  ScrollCue,
+} from './Overlay'
 import { GROUND } from '../theme'
 import { useTicketsLive } from '../lib/useDropped'
 import { columnsFor, useViewport } from '../lib/viewport'
@@ -36,12 +44,15 @@ import { useScrollEngine } from '../lib/useScrollEngine'
  * scroll cue. What goes on the rail is a decision about what a route is FOR, not about
  * whether it happens to have a section underneath, so it is a prop now.
  *
- * The scroll experience itself is identical on every route. Only these two change.
+ * `openOnOutro` deletes step 1. See its own note below.
+ *
+ * The scroll experience itself is otherwise identical on every route.
  */
 export default function LandingShell({
   bottom,
   outro,
   rail = 'cue',
+  openOnOutro = false,
 }: {
   bottom?: ReactNode
   /**
@@ -52,8 +63,12 @@ export default function LandingShell({
    * That prop is a sheet of paper that rides up OVER the whole fixed stack, which ends the
    * scroll on a new surface and takes the footer with it. This one ends the scroll where the
    * scroll already ended. `/tickets` uses it because it has nothing to sell on a page of its
-   * own any more: it links out to TicketWeb, so the last screen is the artwork plus one
-   * short thing to do.
+   * own any more: it links out to TicketWeb, so the screen is the artwork plus the ticket
+   * link and the mailing list.
+   *
+   * Passing one also WIDENS the band, since the block has to fit in it: `eventInfoLift`
+   * keys off whether this prop is present, and below desktop that lift comes off the
+   * poster. See KeyArt.
    *
    * The two are not mutually exclusive in code, but a route wanting both would be a route
    * showing two forms, so nothing passes both today.
@@ -65,8 +80,31 @@ export default function LandingShell({
    * Also sizes the mobile artwork crop, since the two occupants are very different
    * heights and the band above the image has to clear whichever one is there. See
    * MOBILE_TOP in HeroCanvas.
+   *
+   * Ignored entirely under `openOnOutro`, which renders no hero for it to sit on.
    */
   rail?: RailOccupant
+  /**
+   * NO HERO. The page opens on the outro screen, scrolls into the gallery, and ends on the
+   * outro screen again.
+   *
+   * `/tickets` is the route that wants this and the reason it exists. That page sells
+   * nothing of its own — it links out — so the split-slider hero was four screens of
+   * something to play with in front of the one screen that carried the offer: the artwork,
+   * the date, a ticket link and the mailing list. Opening on that screen puts the offer
+   * first, and the gallery becomes what somebody scrolls INTO rather than past.
+   *
+   * Three things follow from it and none are separate decisions:
+   *
+   *   - HeroCanvas, the Caption and the rail occupant are not rendered. All three are the
+   *     hero's own copy and there is nothing left for them to sit on.
+   *   - The spacer's ground turns black, because the white behind the hero was the hero's.
+   *   - Every layer of the outro screen starts at full rather than at zero, since the frame
+   *     before the scroll engine's first tick is now a frame somebody is looking at.
+   *
+   * The crossfade itself is one extra ramp in useScrollEngine. See `intro` there.
+   */
+  openOnOutro?: boolean
 }) {
   const vp = useViewport()
   const cols = columnsFor(vp)
@@ -95,7 +133,26 @@ export default function LandingShell({
    */
   const ticketsLive = useTicketsLive()
 
-  useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom })
+  /**
+   * How far EventInfo lifts, and with it how much of the screen the outro band takes.
+   *
+   * Computed once here and handed to both readers rather than worked out twice. KeyArt's
+   * bottom inset below desktop is derived from the same number — the artwork is what pays
+   * for the band — so the two cannot drift apart. See `eventInfoLift` in Overlay.tsx.
+   */
+  const infoLift = eventInfoLift(vp, Boolean(outro))
+
+  /**
+   * What every layer of the outro screen paints on the one frame before the scroll engine's
+   * first tick.
+   *
+   * Zero everywhere the outro is an ending, which is the state those layers have always
+   * started in. One on a route that opens on it, where that frame is the landing screen and
+   * a zero would flash an empty ground on load. The engine overwrites all of it either way.
+   */
+  const restOpacity = openOnOutro ? 1 : 0
+
+  useScrollEngine({ spacerRef, panelRef, wrapRef, cols, hasBottom, openOnOutro })
 
   /**
    * Takes a visitor who has not touched anything down to the form after a few seconds.
@@ -113,12 +170,15 @@ export default function LandingShell({
         style={{
           position: 'relative',
           userSelect: 'none',
-          background: '#fff',
+          // Black on a route with no hero: the white was the hero's studio ground, and
+          // behind an outro screen it is a white flash between the artwork clearing and
+          // the gallery panel arriving over it.
+          background: openOnOutro ? GROUND : '#fff',
           height: '500vh',
           cursor: hasCursor ? 'none' : 'auto',
         }}
       >
-        <HeroCanvas vp={vp} rail={rail} />
+        {!openOnOutro && <HeroCanvas vp={vp} rail={rail} />}
 
         <BlackPanel panelRef={panelRef} wrapRef={wrapRef} cols={cols} />
 
@@ -131,7 +191,7 @@ export default function LandingShell({
         <div
           id="outro-overlay"
           className="fixed inset-0 pointer-events-none"
-          style={{ zIndex: 12, background: GROUND, opacity: 0 }}
+          style={{ zIndex: 12, background: GROUND, opacity: restOpacity }}
         />
 
         {/*
@@ -149,30 +209,40 @@ export default function LandingShell({
         <div
           id="outro-keyart"
           className="fixed inset-0 pointer-events-none"
-          style={{ zIndex: 14, opacity: 0 }}
+          style={{ zIndex: 14, opacity: restOpacity }}
         >
-          <KeyArt />
+          <KeyArt infoLift={infoLift} eager={openOnOutro} />
         </div>
 
         <LogoMark vp={vp} />
         <HeaderNav vp={vp} hasBottom={hasBottom} ticketsLive={ticketsLive} />
-        <Caption vp={vp} />
+        {/*
+          The caption and the rail below are the HERO's copy, and a route with no hero has
+          nowhere to put them: both sit over the middle of the artwork the outro screen is
+          built around. The header control above is not hero copy — it is the one thing on
+          this page that never fades — so it stays on every route.
+        */}
+        {!openOnOutro && <Caption vp={vp} />}
         {/*
           One rail slot, two occupants, never both: they render in the same place.
 
           The guestlist route takes the cue, which jumps straight down to its form. `/`
           takes the countdown, because the drop is the thing that page is about and
           `useAutoAdvance` below already carries anyone idle down to the form without
-          needing a button to do it. Past the drop the countdown hands over to a GET
-          TICKETS pill on its own. See DropCountdown.
+          needing a button to do it. See DropCountdown.
+
+          Neither renders under `openOnOutro`. The second ticket link the countdown used to
+          hand its slot over to now lives in the outro block below, which is the only place
+          on a heroless page that is not the artwork. See TicketCta.
         */}
-        {rail === 'countdown' ? (
-          <DropCountdown vp={vp} hasBottom={hasBottom} />
-        ) : (
-          <ScrollCue vp={vp} />
-        )}
-        <EventInfo vp={vp} />
-        <Footer vp={vp} />
+        {!openOnOutro &&
+          (rail === 'countdown' ? (
+            <DropCountdown vp={vp} hasBottom={hasBottom} />
+          ) : (
+            <ScrollCue vp={vp} />
+          ))}
+        <EventInfo vp={vp} lift={infoLift} />
+        <Footer vp={vp} startVisible={openOnOutro} />
 
         {/*
           The outro's one interactive block, in the gap between the footer and EventInfo.
@@ -190,10 +260,21 @@ export default function LandingShell({
           2. `userSelect: 'text'` and `cursor: 'auto'`. The spacer sets `none` for both,
              inline, and both inherit — a nested form would be unselectable and cursorless.
 
+             `data-system-cursor` is the other half of that. Bringing the real cursor back
+             here means it is drawn over this block while the custom ring is still following
+             the pointer around the rest of the screen, so the ring hides itself over
+             anything carrying that attribute. It is on the same element as the `cursor`
+             declaration that creates the problem, and it has to stay there. See
+             CustomCursor.
+
           3. Inert until it arrives. `opacity`, `visibility` and `pointerEvents` are all
              driven per frame by useScrollEngine off the tail of the outro ramp. Without the
              last two this is an invisible tap target and a run of tab stops sitting over the
              hero for the entire five viewports above it.
+
+             Under `openOnOutro` it arrives immediately, so the three start at the other end
+             — see `restOpacity` above. The engine drives them exactly as before; what
+             changes is which ramp it reads, not that it reads one.
 
           4. The insets are the gap, measured. Desktop: the footer's top edge is around 49
              and EventInfo finishes 166px above its `bottom: 80`, so the column runs to 246.
@@ -204,15 +285,16 @@ export default function LandingShell({
         {outro && (
           <div
             id="outro-signup"
+            data-system-cursor
             style={{
               position: 'fixed',
               zIndex: 20,
               ...(vp.isDesktop
                 ? { right: 32, bottom: 64, width: 330 }
                 : { left: 16, right: 16, bottom: 46 }),
-              opacity: 0,
-              visibility: 'hidden',
-              pointerEvents: 'none',
+              opacity: restOpacity,
+              visibility: openOnOutro ? 'visible' : 'hidden',
+              pointerEvents: openOnOutro ? 'auto' : 'none',
               userSelect: 'text',
               cursor: 'auto',
             }}

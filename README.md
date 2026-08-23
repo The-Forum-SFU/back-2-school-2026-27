@@ -30,9 +30,18 @@ saturated thing on screen and wants nothing competing behind it, and `exclusion`
 no-op against black, so the overlay type resolves to pure white. See `GROUND` in
 [src/theme.ts](src/theme.ts).
 
-`LandingShell` owns that sequence. Steps 1 to 3 are the same on every route that renders
+`LandingShell` owns that sequence. Steps 2 and 3 are the same on every route that renders
 it, key art included — the outro belongs to the EVENT, not to whatever list a route
-happens to own. Only step 4 is a prop (`bottom`), so a route brings its own ending.
+happens to own. Step 4 is a prop (`bottom`), so a route brings its own ending.
+
+**`/tickets` has no step 1.** It passes `openOnOutro`, which deletes the hero and starts the
+page on the outro screen instead: the artwork, the date stamp, a ticket link and the mailing
+list are what somebody lands on, the gallery is what they scroll INTO, and the same screen
+closes the page. That route sells nothing of its own — it links out — so a split-slider
+standing four viewports in front of the offer was four viewports of delay on the page every
+ad points at from the drop onward. The crossfade is one extra ramp: see `intro` in
+`useScrollEngine`, which the outro's own value is `max`ed with so every layer of that screen
+moves together at both ends.
 
 The key art is a FIXED layer inside the outro, not a section below the spacer. That
 distinction is load-bearing: `hasBottom` — and with it `coverStart` / `coverEnd` in
@@ -55,6 +64,8 @@ clock are not left sitting across the artwork.
 | [src/components/Overlay.tsx](src/components/Overlay.tsx) | Logo, nav, caption, event info, CTA, footer |
 | [src/components/BlackPanel.tsx](src/components/BlackPanel.tsx) | The gallery sheet |
 | [src/components/KeyArt.tsx](src/components/KeyArt.tsx) | Poster with the teaser resting on it, on the outro |
+| [src/components/OutroSignup.tsx](src/components/OutroSignup.tsx) | The mailing-list strip on the outro screen |
+| [src/components/TicketCta.tsx](src/components/TicketCta.tsx) | GET TICKETS, above that strip on `/tickets` |
 | [src/components/LandingBottom.tsx](src/components/LandingBottom.tsx) | What `/` puts on the paper sheet: the form, or the tickets |
 | [src/theme.ts](src/theme.ts) | The REWIND palette, sampled off the poster |
 | [src/components/PageTracking.tsx](src/components/PageTracking.tsx) | Meta Pixel + ad attribution, for every route |
@@ -240,8 +251,10 @@ avconvert --preset Preset640x480 \
 `Preset960x540` gives a better 540x960 at 6.6 MB, and `PresetHEVC1920x1080` will not
 downscale at all and lands at 11.7 MB. 360x640 is the compromise, and the card is capped
 at 300px wide to match it. It is still the heaviest file on the site, which is why
-[KeyArt](src/components/KeyArt.tsx) withholds the `<source>` behind an
-`IntersectionObserver` rather than trusting `preload="none"`.
+[KeyArt](src/components/KeyArt.tsx) does not mount the `<video>` at all until the outro is
+within half a viewport, rather than trusting `preload="none"`. The one exception is
+`/tickets`, where the outro is the screen you land on and there is no scrolling left to wait
+for — `eager` skips the deferral there, and the poster frame covers the download either way.
 
 Brand marks (originals kept alongside):
 

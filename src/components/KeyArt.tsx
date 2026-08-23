@@ -44,28 +44,64 @@ import { useViewport, type Viewport } from '../lib/viewport'
  *   the container width    over the poster's 0.8 ratio, scaled by the 0.86 the side
  *                          padding leaves, which is where the 1.07 comes from
  */
-function frame(vp: Viewport) {
+/** Where the artwork starts below desktop: clear of the wordmark and the header control. */
+const ART_TOP = 92
+
+/**
+ * What EventInfo occupies below desktop once it has lifted, over and above the lift itself:
+ * its own 48px offset from the bottom, 152px of type, and 12px of air. Measured.
+ *
+ * Adding the lift to this is what keeps the artwork off the date stamp when a route widens
+ * the outro band. It used to be the single literal 344, which was correct for exactly one
+ * value of the lift and silently wrong for any other.
+ */
+const INFO_CLEARANCE = 212
+
+function frame(vp: Viewport, infoLift: number) {
   if (vp.isDesktop) {
     // EventInfo is 330 wide against the right edge with a 32px gutter, so 380 clears it,
-    // and 412 is that plus the 32 on the left. 600 centres the poster between the wordmark
-    // at the top and the footer at the bottom without touching either.
+    // and 412 is that plus the 32 on the left.
+    //
+    // THE TOP AND BOTTOM INSETS ARE NOT DECORATION, and 100vh in their place was a bug.
+    // The wordmark finishes 94px down and the footer's top edge sits 49px up, and the box
+    // is centred, so a height bounded only by the viewport put the poster underneath both
+    // on any desktop shorter than about 810px — which is a 1280x800 laptop once the
+    // browser has taken its chrome, one of the commonest screens there is. A full-colour
+    // poster under `exclusion` type does not dim it, it inverts it into nonsense: the
+    // wordmark came out unreadable. Reserving the two bands here and bounding the height
+    // by what is left is what makes the centring safe at every height.
+    //
+    // No `infoLift` here on purpose: at this breakpoint the artwork and EventInfo are side
+    // by side, so how far the type lifts costs the poster nothing.
     return {
-      inset: '0 380px 0 32px',
-      height: 'min(600px, 100vh, calc((100vw - 412px) * 1.07))',
+      inset: '106px 380px 61px 32px',
+      height: 'min(600px, calc(100vh - 167px), calc((100vw - 412px) * 1.07))',
     }
   }
   // Below desktop EventInfo moves to the bottom centre and the footer sits under it, so
-  // the free space is the top of the screen rather than the left of it. 436 is the 92 and
-  // 344 those two insets reserve; 40 is the 20 either side.
+  // the free space is the top of the screen rather than the left of it, and the artwork
+  // pays for the band directly. 40 is the 20 either side.
+  const bottom = INFO_CLEARANCE + infoLift
   return {
-    inset: '92px 20px 344px 20px',
-    height: 'min(460px, calc(100vh - 436px), calc((100vw - 40px) * 1.07))',
+    inset: `${ART_TOP}px 20px ${bottom}px 20px`,
+    height: `min(460px, calc(100vh - ${ART_TOP + bottom}px), calc((100vw - 40px) * 1.07))`,
   }
 }
 
-export default function KeyArt() {
+export default function KeyArt({
+  infoLift,
+  eager = false,
+}: {
+  /** How far EventInfo lifts on this route. See `eventInfoLift` in Overlay.tsx. */
+  infoLift: number
+  /**
+   * True when this screen is the one somebody LANDS on rather than the one four viewports
+   * down, which is the whole of what `useOutroNear` exists to detect. See Teaser.
+   */
+  eager?: boolean
+}) {
   const vp = useViewport()
-  const { inset, height } = frame(vp)
+  const { inset, height } = frame(vp, infoLift)
 
   return (
     <div
@@ -107,7 +143,7 @@ export default function KeyArt() {
           }}
         />
 
-        <Teaser vp={vp} />
+        <Teaser vp={vp} eager={eager} />
       </div>
     </div>
   )
@@ -125,9 +161,15 @@ export default function KeyArt() {
  * Under reduced motion nothing is mounted and the poster frame stands in. A silent loop
  * restarting forever is exactly the unrequested perpetual movement that preference is
  * asking us to stop, and the still carries the same artwork.
+ *
+ * `eager` is the case the deferral cannot cover: on a route that OPENS on this screen there
+ * is no scrolling left to wait for, and holding the clip back would leave a rectangle of
+ * still frame sitting in the middle of the first thing anyone sees. The 3.5 MB is spent
+ * deliberately there, and it costs nothing perceived — `poster` paints the same still while
+ * it downloads.
  */
-function Teaser({ vp }: { vp: Viewport }) {
-  const near = useOutroNear()
+function Teaser({ vp, eager }: { vp: Viewport; eager: boolean }) {
+  const near = useOutroNear() || eager
 
   const still = (
     <img

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import LandingShell from '../components/LandingShell'
 import OutroSignup from '../components/OutroSignup'
+import TicketCta from '../components/TicketCta'
 import { useTicketsLive } from '../lib/useDropped'
 import { ROUTES } from '../routes'
 
@@ -21,20 +22,25 @@ import { ROUTES } from '../routes'
  * most of this traffic — fails often enough that the escape hatch was carrying the page,
  * and a link that always works beats a frame that usually does.
  *
- * NO `bottom`, AND THAT IS THE WHOLE MECHANISM. `LandingShell` derives `hasBottom` from it,
- * and every control that used to travel down the page reads that flag: the header renders
- * `[ TICKETS ]` as an external link rather than a scroll button, the hero rail hands the
- * countdown's slot to a plain GET TICKETS link with no arrow on it, and `useAutoAdvance`
- * switches itself off because there is nowhere to advance to. Nothing in this file has to
- * say any of that. Putting a section back below would silently turn all three into scrolls
- * again.
+ * NO `bottom`, AND THAT IS STILL HALF THE MECHANISM. `LandingShell` derives `hasBottom`
+ * from it, and the controls that used to travel down the page read that flag: the header
+ * renders `[ TICKETS ]` as an external link rather than a scroll button, and
+ * `useAutoAdvance` switches itself off because there is nowhere to advance to. Nothing in
+ * this file has to say any of that. Putting a section back below would silently turn the
+ * header into a scroll again.
  *
- * `rail="countdown"` looks wrong here and is not. Past the drop DropCountdown has no time
- * left to show and hands its slot over to the ticket link, so the hero carries a way to buy
- * for anyone who never scrolls.
+ * `openOnOutro` IS THE OTHER HALF, and it deletes the hero.
  *
- * What is left at the end of the scroll is the key art and one short thing to do: the
- * mailing-list strip, on the outro screen itself. See the `outro` prop on LandingShell.
+ * There is no split-slider on this route any more. The bear was four viewports of something
+ * to play with standing in front of the one screen that carried the offer, on the page every
+ * ad points at from the drop onward. That screen — the key art, the date stamp, a ticket
+ * link and the mailing list — is now what somebody LANDS on, the gallery is what they scroll
+ * into, and the same screen closes the page. Two ways to buy on the first frame, the header
+ * control and the filled link in the block below the date stamp, and neither of them is
+ * four screens down.
+ *
+ * No `rail` either, and passing one would do nothing: the rail is a slot on a hero that no
+ * longer exists. The GET TICKETS pill it used to hold is the TicketCta below.
  */
 export default function Tickets() {
   const live = useTicketsLive()
@@ -43,5 +49,19 @@ export default function Tickets() {
   // Carries the query string back the same way `/` carries it forward. See the note there.
   if (!live) return <Navigate to={{ pathname: ROUTES.LANDING, search }} replace />
 
-  return <LandingShell outro={<OutroSignup />} rail="countdown" />
+  return (
+    <LandingShell
+      openOnOutro
+      /*
+        The order is the hierarchy. Buying is what this page is for, so the filled ticket
+        link goes above the two fields that are the consolation prize for not buying today.
+      */
+      outro={
+        <>
+          <TicketCta />
+          <OutroSignup />
+        </>
+      }
+    />
+  )
 }

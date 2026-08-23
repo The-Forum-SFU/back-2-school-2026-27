@@ -363,14 +363,32 @@ export function ScrollCue({ vp }: { vp: Viewport }) {
   )
 }
 
-export function EventInfo({ vp }: { vp: Viewport }) {
+/**
+ * How far EventInfo lifts on the outro, in px.
+ *
+ * The lift is what OPENS the band the outro block sits in, so how far it has to travel
+ * depends on what the route put there. `/` passes no `outro` block at all and keeps the
+ * original figure; `/tickets` stacks a ticket link on top of the mailing-list strip, which
+ * is roughly 48px taller than the strip was on its own.
+ *
+ * Read in two places that must not disagree: `data-outro-offset` below, which the scroll
+ * engine drives the translate off, and `frame()` in KeyArt, whose bottom inset has to clear
+ * whatever EventInfo ends up covering. LandingShell computes this once and hands it to
+ * both, which is the only reason they cannot drift apart.
+ */
+export function eventInfoLift(vp: Viewport, hasOutroBlock: boolean): number {
+  if (!hasOutroBlock) return vp.isDesktop ? 166 : 132
+  return vp.isDesktop ? 196 : 180
+}
+
+export function EventInfo({ vp, lift }: { vp: Viewport; lift: number }) {
   const desktop = vp.isDesktop
   const circle = desktop ? 30 : 20
 
   return (
     <motion.div
       id="outro-info"
-      data-outro-offset={desktop ? 166 : 132}
+      data-outro-offset={lift}
       {...fadeIn(0.45)}
       style={{
         ...overlayBase,
@@ -511,7 +529,21 @@ export function EventInfo({ vp }: { vp: Viewport }) {
   )
 }
 
-export function Footer({ vp }: { vp: Viewport }) {
+export function Footer({
+  vp,
+  startVisible = false,
+}: {
+  vp: Viewport
+  /**
+   * True on a route whose FIRST screen is the outro, where this belongs to the view
+   * somebody lands on rather than to one four viewports down.
+   *
+   * The scroll engine overwrites `opacity` on the frame after mount either way, so this
+   * only decides what the one frame before that paints. Without it a route that opens on
+   * the outro flashes a footerless screen on load.
+   */
+  startVisible?: boolean
+}) {
   const desktop = vp.isDesktop
   const textStyle = {
     fontFamily: FONT,
@@ -534,7 +566,7 @@ export function Footer({ vp }: { vp: Viewport }) {
         left: 16,
         right: desktop ? undefined : 16,
         bottom: desktop ? 32 : 24,
-        opacity: 0,
+        opacity: startVisible ? 1 : 0,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',

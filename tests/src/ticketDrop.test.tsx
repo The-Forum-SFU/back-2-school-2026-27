@@ -71,10 +71,10 @@ function renderAt(iso: string) {
  * The whole `/tickets` route, shell and all.
  *
  * Rendered as a page rather than as its parts, because the thing worth guarding is a
- * COMPOSITION: what the header and the hero rail do is decided by whether this route handed
- * LandingShell a `bottom` section, not by anything either control is passed directly. A test
- * that rendered the controls in isolation would keep passing through exactly the change it
- * exists to catch.
+ * COMPOSITION: what the header does is decided by whether this route handed LandingShell a
+ * `bottom` section, and what the first screen IS is decided by `openOnOutro`. Neither is
+ * anything a control is passed directly. A test that rendered the controls in isolation
+ * would keep passing through exactly the change it exists to catch.
  */
 function renderTicketsAt(iso: string) {
   vi.setSystemTime(new Date(iso))
@@ -173,12 +173,17 @@ describe('once the drop lands', () => {
     LandingShell derives from whether the route passed a `bottom` section. Putting one back
     turns all of these into scroll buttons pointed at a page that no longer has a checkout
     on it, and nothing in Tickets.tsx would have to change for that to happen.
+
+    TWO of them, counted exactly: the header control and the filled link above the mailing
+    list. The count is the assertion. There were two before the hero came off this route as
+    well — the header and a pill on the hero rail — and the rail is gone, so a change that
+    quietly dropped the second way to buy would otherwise pass everything here.
   */
   it('makes every ticket control a link out rather than a scroll', () => {
     renderTicketsAt(DROP_UTC)
 
     const links = screen.getAllByRole('link', { name: /TICKETS/i })
-    expect(links.length).toBeGreaterThan(0)
+    expect(links).toHaveLength(2)
     for (const link of links) {
       expect(link).toHaveAttribute('href', EVENT.tickets.url)
       expect(link).toHaveAttribute('target', '_blank')
@@ -196,33 +201,91 @@ describe('once the drop lands', () => {
     renderTicketsAt(DROP_UTC)
     expect(screen.getByLabelText('First name')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    // Queried by TEXT rather than by accessible name, and that is not a workaround. The
-    // layer is `visibility: hidden` at rest, so the accessible-name algorithm skips its text
-    // entirely and this button's computed name is the empty string. The next test is that
-    // same fact, asserted on purpose.
     expect(screen.getByText('Join').tagName).toBe('BUTTON')
   })
 
   /*
-    AND IT STARTS INERT, which is the half that is easy to lose.
+    AND IT IS LIVE ON THE FIRST FRAME, which is the half that is easy to lose.
 
-    The strip is in the DOM from the first frame but sits on a fixed layer four viewports
-    below where the visitor is standing. useScrollEngine drives its `visibility` and
-    `pointerEvents` off the tail of the outro ramp; until then it must be out of the
-    accessibility tree and out of the tab order, or someone tabbing through the hero lands
-    in a form they cannot see.
+    This route has no hero. `openOnOutro` makes the outro screen the one somebody LANDS on,
+    so the strip is not four viewports below where the visitor is standing any more — it is
+    under their thumb. The layer's `opacity`, `visibility` and `pointerEvents` are still
+    driven per frame by useScrollEngine, and it still goes inert through the gallery; what
+    the three start at is what this pins down, because a stale `hidden` here is a form that
+    is on screen, looks pressable, and is out of the accessibility tree.
 
-    `hidden: true` above and its absence here are the whole assertion: the elements exist,
-    and the default accessibility-aware query cannot reach them.
+    Reaching the button by ROLE is the real assertion. That query is accessibility-aware and
+    was deliberately impossible to satisfy while this layer was hidden.
   */
-  it('leaves that strip out of the tab order until the outro arrives', () => {
+  it('has that strip live on the screen people land on', () => {
     renderTicketsAt(DROP_UTC)
 
-    expect(screen.queryByRole('button', { name: 'Join' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument()
 
     const layer = document.getElementById('outro-signup')
     expect(layer).not.toBeNull()
-    expect(layer).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none', opacity: '0' })
+    expect(layer).toHaveStyle({ visibility: 'visible', pointerEvents: 'auto', opacity: '1' })
+  })
+
+  /*
+    AND THERE IS A POINTER ON IT.
+
+    The custom ring replaces the system cursor — `#scroll-spacer` carries `cursor: none` on
+    desktop — so anything that hides the ring across the viewport leaves this screen with no
+    pointer at all. useScrollEngine used to hide it whenever the outro block was live, which
+    on every other route means the very bottom of the scroll and here means THE FIRST FRAME:
+    `openOnOutro` starts the outro at full, so the page every ad points at opened with an
+    invisible cursor everywhere outside one 330px column.
+
+    Two assertions because the fix has two halves. The ring must survive the landing frame,
+    and the block that brings the real cursor back must still say so, since that attribute is
+    now the only thing stopping the two from being drawn at once.
+  */
+  it('keeps a cursor on the screen people land on', () => {
+    renderTicketsAt(DROP_UTC)
+
+    // The rule under test is written from inside useScrollEngine's RAF loop, so a render
+    // alone proves nothing — without a frame this asserts the markup's initial style and
+    // passes straight through the bug. Fake timers stand in for the frame.
+    act(() => {
+      vi.advanceTimersByTime(64)
+    })
+
+    const ring = document.getElementById('custom-cursor')
+    expect(ring).not.toBeNull()
+    // Not `toBeVisible`: `mix-blend-mode` and the spacer's own state are not what this is
+    // about, and either property being 'hidden'/'0' is the bug.
+    expect(ring?.style.visibility).not.toBe('hidden')
+    expect(ring?.style.opacity).not.toBe('0')
+
+    expect(document.getElementById('outro-signup')).toHaveAttribute('data-system-cursor')
+  })
+
+  /*
+    THE HERO IS GONE, and these are the pieces of it.
+
+    Asserted by absence because that is the only way it can be. Every one of these renders
+    unconditionally on `/`, and each would come back on its own the moment `openOnOutro`
+    stopped being passed — a bear standing in front of the offer on the page every ad points
+    at, with nothing failing to say so.
+  */
+  it('opens on the artwork rather than on the hero', () => {
+    renderTicketsAt(DROP_UTC)
+
+    // The split-slider and its two image layers.
+    expect(document.getElementById('main-canvas')).toBeNull()
+    // The hero's own copy: the tagline on the left rail, and the slot under it.
+    expect(document.getElementById('hero-caption')).toBeNull()
+    expect(document.getElementById('hero-rail')).toBeNull()
+
+    /*
+      And the outro screen is painted rather than waiting to be scrolled to. These are the
+      values of the frame BEFORE useScrollEngine's first tick, which on this route is a
+      frame somebody is looking at — see `restOpacity` in LandingShell.
+    */
+    expect(document.getElementById('outro-keyart')).toHaveStyle({ opacity: '1' })
+    expect(document.getElementById('outro-overlay')).toHaveStyle({ opacity: '1' })
+    expect(document.getElementById('outro-footer')).toHaveStyle({ opacity: '1' })
   })
 
   it('goes live on its own, with nobody reloading anything', () => {
