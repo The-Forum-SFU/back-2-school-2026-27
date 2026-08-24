@@ -104,6 +104,31 @@ export function useScrollEngine({
     let outroOffset = 166
     let cards: Card[] = []
 
+    /*
+      IS SOMEBODY TYPING IN THE OUTRO BLOCK RIGHT NOW.
+
+      Everything else in this file treats `window.scrollY` as a statement of intent. This is
+      the one case where it is not, and it is the one that broke the form.
+
+      Tapping a field in a `position: fixed` block pinned to the bottom of a phone screen
+      opens the on-screen keyboard, and every mobile browser answers that by scrolling the
+      document — it is trying to lift the focused input clear of the keyboard. Nobody asked
+      for that scroll, and on `/tickets` it lands on the steepest ground on the page. The
+      intro ramp below is half a viewport end to end, so on a 667px screen roughly 15px of
+      it takes `formIn` under 0.9 and the block STOPS TAKING TAPS, and roughly 150px takes
+      it under 0.02 and the block IS GONE — with the ground, the artwork and the footer
+      fading out behind it on the way down. That is the reported bug: the form glitches out
+      from under the person filling it in, at the top of the page, mid-word.
+
+      So while focus is inside that block, `art` is held at 1 and the outro screen simply
+      stays the screen. Holding that one value is enough to freeze the whole composition:
+      the ground is opaque at 1, so the gallery panel and the cards still moving behind it
+      are not visible either, and every other layer on this screen is fixed.
+    */
+    let typing = false
+    /** Where the page was when they tapped the field, and where it goes back to on blur. */
+    let pinnedY = 0
+
     const measure = () => {
       vh = window.innerHeight
       // offsetParent for the cards is the fixed panel, so offsetTop is already
@@ -117,6 +142,48 @@ export function useScrollEngine({
       outroOffset = Number(info?.dataset.outroOffset ?? 166)
       spacer.style.height = `${vh + maxScroll + 2 * vh}px`
       ScrollTrigger.refresh()
+    }
+
+    const pin = () => {
+      if (typing) return
+      typing = true
+      pinnedY = window.scrollY
+    }
+
+    /*
+      `restore` is the whole difference between the two ways the hold ends.
+
+      BLUR RESTORES. The keyboard's scroll was never asked for, so putting the page back
+      where the visitor left it is what makes releasing the hold invisible. Without it the
+      outro fades out the instant somebody finishes typing — the same glitch, moved later,
+      and landing on the confirmation line they are meant to read.
+
+      A DELIBERATE GESTURE DOES NOT. Somebody wheeling or dragging while a field is focused
+      is leaving, and yanking them back to the form would be the worse of the two bugs; they
+      resume from wherever they have got to. A `touchmove` that starts INSIDE the block is
+      excluded from that, because on a two-field strip it is a text selection or a fumble
+      rather than an attempt to scroll away — and treating it as one would drop the hold
+      while the keyboard is still up, which is exactly the state it exists to survive.
+    */
+    const release = (restore: boolean) => {
+      if (!typing) return
+      typing = false
+      if (restore && window.scrollY !== pinnedY) window.scrollTo(0, pinnedY)
+    }
+
+    const onFocusIn = () => pin()
+    /** `focusin`/`focusout` bubble where `focus`/`blur` do not, so these sit on the block. */
+    const onFocusOut = (e: FocusEvent) => {
+      // Tabbing from the name field to the email field is not leaving the form.
+      const next = e.relatedTarget
+      if (next instanceof Node && outroSignup?.contains(next)) return
+      release(true)
+    }
+    const onGesture = (e: Event) => {
+      if (e.type === 'touchmove' && e.target instanceof Node && outroSignup?.contains(e.target)) {
+        return
+      }
+      release(false)
     }
 
     // Phase 1: the panel slides up across the first viewport of scroll.
@@ -184,7 +251,9 @@ export function useScrollEngine({
         of them and never runs past 1.
       */
       const intro = openOnOutro ? clamp01(1 - y / Math.max(1, vh * INTRO_SPAN)) : 0
-      const art = Math.max(intro, outro)
+      // Held at full while a field in the outro block has focus — the keyboard moved the
+      // page, not the visitor. See `typing` above, which is where the reasoning lives.
+      const art = typing ? 1 : Math.max(intro, outro)
 
       if (overlay) overlay.style.opacity = `${art}`
       if (info) info.style.transform = `translate3d(0, ${-outroOffset * art}px, 0)`
@@ -229,12 +298,26 @@ export function useScrollEngine({
         into a form four viewports before it exists. `pointerEvents` waits until it is
         essentially opaque, because a control that is on screen at 30% and already clickable
         is a control someone taps by accident on the way past.
+
+        WHICH IS A RULE ABOUT ARRIVING, AND THE INTRO RAMP IS NOT AN ARRIVAL.
+
+        The accidental tap it guards against is a control coming up the page towards someone
+        who is travelling past it, which is the outro. On `/tickets` this block is also on
+        the screen the visitor LANDS on, and there it is leaving rather than arriving: they
+        are already on it, they are looking at it, and it is the only thing on that screen to
+        fill in. Applying the arrival rule to that end of the ramp made the form dead to the
+        touch after ~15px of scroll while still painted at 91% — a form that looks entirely
+        present and answers nothing, which is indistinguishable from the page being broken.
+
+        So the guard is applied where the reason for it is. On the way in, tappable while it
+        is essentially opaque; on the way out, tappable for as long as it is visible.
       */
       const formIn = clamp01((art - 0.55) / 0.45)
       if (outroSignup) {
+        const visible = formIn > 0.02
         outroSignup.style.opacity = `${formIn}`
-        outroSignup.style.visibility = formIn > 0.02 ? 'visible' : 'hidden'
-        outroSignup.style.pointerEvents = formIn > 0.9 ? 'auto' : 'none'
+        outroSignup.style.visibility = visible ? 'visible' : 'hidden'
+        outroSignup.style.pointerEvents = (intro > 0 ? visible : formIn > 0.9) ? 'auto' : 'none'
       }
 
       // The bottom section (when a route has one) begins entering here and has fully
@@ -309,7 +392,28 @@ export function useScrollEngine({
     const cycle = reducedMotion ? 0 : window.setInterval(nextSymbol, SYMBOL_CYCLE_MS)
 
     let remeasure = 0
+    let lastWidth = window.innerWidth
     const onResize = () => {
+      const width = window.innerWidth
+      const rotated = width !== lastWidth
+      lastWidth = width
+
+      /*
+        The keyboard again, on the browsers that answer it by shrinking the layout viewport
+        rather than the visual one.
+
+        `measure` reads `window.innerHeight` into `vh`, rewrites the spacer height off it and
+        refreshes ScrollTrigger. Doing that against a viewport 300px shorter halves every
+        ramp on the page and re-lays the scroll out underneath somebody mid-word, which is
+        the second half of the same glitch the hold above fixes.
+
+        A height-only resize while a field in that block has focus IS the keyboard, and is
+        ignored — `vh` is still correct, because the keyboard did not change the viewport the
+        page was laid out for. A rotation changes the WIDTH, which the keyboard never does,
+        and is measured normally.
+      */
+      if (typing && !rotated) return
+
       cancelAnimationFrame(remeasure)
       remeasure = requestAnimationFrame(measure)
     }
@@ -322,6 +426,17 @@ export function useScrollEngine({
     const observer = new ResizeObserver(onResize)
     observer.observe(wrap)
 
+    // Only a route with an outro block has a field to focus, and only that block's focus
+    // can misread as scroll — so on every other route none of this is wired at all.
+    if (outroSignup) {
+      outroSignup.addEventListener('focusin', onFocusIn)
+      outroSignup.addEventListener('focusout', onFocusOut)
+      // `passive`, like every other listener here: neither of these cancels anything, and
+      // watching a scroll gesture must never be able to delay one.
+      window.addEventListener('wheel', onGesture, { passive: true })
+      window.addEventListener('touchmove', onGesture, { passive: true })
+    }
+
     return () => {
       cancelAnimationFrame(raf)
       cancelAnimationFrame(remeasure)
@@ -330,6 +445,12 @@ export function useScrollEngine({
       window.removeEventListener('resize', onResize)
       window.removeEventListener('load', onResize)
       observer.disconnect()
+      if (outroSignup) {
+        outroSignup.removeEventListener('focusin', onFocusIn)
+        outroSignup.removeEventListener('focusout', onFocusOut)
+        window.removeEventListener('wheel', onGesture)
+        window.removeEventListener('touchmove', onGesture)
+      }
       slide.scrollTrigger?.kill()
       slide.kill()
     }
