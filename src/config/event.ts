@@ -416,7 +416,17 @@ export const HERO_COPY = {
  * until one exists.
  */
 export const OUTRO_SIGNUP_COPY = {
-  eyebrow: 'Stay in the loop',
+  /*
+    The reason to sign up, not a label for the thing being signed up to.
+
+    Written in sentence case and RENDERED IN CAPS — `eyebrowStyle` in OutroSignup carries
+    `textTransform: 'uppercase'`, so the casing here is only what the source reads as.
+
+    It is two lines on a phone rather than one, which is the whole of its cost. See the
+    height budget in OutroSignup: the band this block sits in is fixed, and the second line
+    spends most of what was spare in it.
+  */
+  eyebrow: 'Access exclusive pre-sales, discounts & giveaways for future events',
   firstNameLabel: 'First name',
   emailLabel: 'Email',
   submitLabel: 'Join',

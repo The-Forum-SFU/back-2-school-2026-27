@@ -32,10 +32,18 @@ import { useViewport } from '../lib/viewport'
  * form, the 16px input floor is the same iOS zoom fix as `controlStyle`, and the honeypot
  * and mount-time traps match what api/subscribe.ts checks.
  *
- * THE HEIGHT BUDGET IS REAL. On a 375x667 screen the band between the footer and EventInfo
- * is about 141px. The eyebrow, the row and the fine print come to roughly 120px. If the fine
- * print ever wraps to a fourth line this collides with the SEPT 20 block, and the eyebrow is
- * the thing to drop first.
+ * THE HEIGHT BUDGET IS REAL, AND IS TIGHTER THAN IT WAS. On a 375x667 screen the band
+ * between the footer and EventInfo is about 141px. The eyebrow, the row and the fine print
+ * come to roughly 130px of it.
+ *
+ * The eyebrow is what changed. It used to be the three words "Stay in the loop" and it is
+ * now the offer itself — pre-sales, discounts and giveaways — which wraps to TWO lines at
+ * this width and spends most of the slack that was there. What is left is under a line.
+ *
+ * So the old warning is now a live constraint rather than a distant one: if the fine print
+ * grows a fourth line, or the eyebrow a third, this collides with the SEPT 20 block. The
+ * eyebrow is still the thing to shorten first — it is the only line here that is selling
+ * rather than disclosing.
  */
 
 /** White-on-navy equivalents of INK / MUTED / FIELD_RULE from form/Field.tsx. */
