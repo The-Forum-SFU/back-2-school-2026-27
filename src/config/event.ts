@@ -251,15 +251,12 @@ export const EVENT = {
    * beside it was doing most of the work. It is kept ONLY because `ticketsAvailable()` below
    * reads it, and that predicate is half of what `/` and `/tickets` redirect on. Emptying it
    * is safe; adding a frame back is not a one-line change.
-   *
-   * `?theme=Blueprint_` is TicketWeb's own embeddable theme, left on the URL because it is
-   * a perfectly good page to land on.
    */
   tickets: {
     enabled: true,
-    url: 'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423?theme=Blueprint_',
+    url: 'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423',
     embedUrl:
-      'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423?theme=Blueprint_',
+      'https://www.ticketweb.ca/event/rewind-sfus-biggest-back-to-celebrities-nightclub-tickets/15038423',
   },
 } as const
 
