@@ -1,5 +1,6 @@
 export type TicketType =
   | 'presale-guestlist'
+  | 'friends-family'
   | 'mailing-list'
   | 'early-access'
   | 'general-onsale'
@@ -7,6 +8,7 @@ export type TicketType =
 
 export const TICKET_TYPES: readonly TicketType[] = [
   'presale-guestlist',
+  'friends-family',
   'mailing-list',
   'early-access',
   'general-onsale',

@@ -165,14 +165,15 @@ whether or not anyone finished wiring TicketWeb up, so
 form off the page. If the link is missing at noon, the page keeps doing what it was doing
 at 11:59 rather than showing an empty section.
 
-### Two lists, and why they are not one
+### Three lists, and why they are not one
 
-| | `mailing-list` | `presale-guestlist` |
-| --- | --- | --- |
-| Route | `/`, public | unlisted, see [src/routes.ts](src/routes.ts) |
-| Capacity | none | 75, enforced in `claim_signup` |
-| Grants | nothing | discounted door entry |
-| Brevo | `BREVO_LIST_ID_MAILING` | `BREVO_LIST_ID_PRESALE` |
+| | `mailing-list` | `presale-guestlist` | `friends-family` |
+| --- | --- | --- | --- |
+| Route | `/`, public | unlisted, see [src/routes.ts](src/routes.ts) | unlisted, see [src/routes.ts](src/routes.ts) |
+| Capacity | none | 75, enforced in `claim_signup` | 75, its own count |
+| Closes | at the ticket drop | 2026-08-25 | 2026-09-19 |
+| Grants | nothing | discounted door entry | discounted door entry |
+| Brevo | `BREVO_LIST_ID_MAILING` | `BREVO_LIST_ID_PRESALE` | `BREVO_LIST_ID_FRIENDS` |
 
 Same form component, same fields, same consent wording. The difference is entirely in
 config, and three properties carry it: `capacity: null`, no `doorInstructions`, and
@@ -180,6 +181,25 @@ config, and three properties carry it: `capacity: null`, no `doorInstructions`, 
 [ListSection](src/components/ListSection.tsx) and [Confirmed](src/pages/Confirmed.tsx)
 both test before rendering the price comparison, so a public signup is never shown a
 door rate nobody is holding for them.
+
+**`friends-family` is a clone of `presale-guestlist` with one thing deliberately not
+shared: the pool.** `claim_signup` counts capacity with `where ticket_type =
+p_ticket_type`, so the ticket type *is* the pool. Pointing a second route at
+`presale-guestlist` would have been one line and no migration, and it would have meant
+both links drawing down a single count of 75 until whichever went out first took the lot.
+A separate `ticket_type` makes the two counts independent, under the same row lock, at no
+other cost. Its Brevo list is separate for the matching reason: two audiences merged into
+one list can never be told apart again.
+
+Everything an attendee sees is the same on both, from one set of strings —
+`GUESTLIST_DOOR_INSTRUCTIONS`, `GUESTLIST_TERMS` and `LIST_PITCH` in
+[src/config/event.ts](src/config/event.ts). Only the kicker, the closing date and the
+full-panel headline differ. If the door terms change, change them there and both lists
+move together.
+
+Note the duplicate check is per-type too, so one person can hold a spot on both lists with
+the same address. That is correct for two separate allocations and is not a way in twice:
+the door checks a name, and the name is on a list either way.
 
 The marketing opt-in is **optional**. It is recorded either way, so the Brevo list is not
 a lawful send list on its own: anything promotional goes to a segment filtered on

@@ -16,13 +16,19 @@ import type { TicketType } from './types.js'
 /**
  * Which Brevo list each ticket type feeds.
  *
- * Written out explicitly so the gap is visible in code: .env carries PRESALE, VIP and
- * FRIENDS — three ids from a superseded plan — against five ticket types. Only
- * presale-guestlist and mailing-list are wired; the rest resolve to undefined and skip
- * the sync with a logged reason rather than guessing at a list.
+ * Written out explicitly so the gap is visible in code. Three of the six are wired:
+ * presale-guestlist, friends-family and mailing-list. The rest resolve to undefined and
+ * skip the sync with a logged reason rather than guessing at a list.
+ *
+ * The two guestlists point at DIFFERENT ids, which matters as much here as the separate
+ * capacity pool does in the database. They are two audiences reached two different ways,
+ * and once they are merged into one Brevo list they cannot be told apart again.
  */
 const LIST_ID_ENV: Record<TicketType, string | undefined> = {
   'presale-guestlist': 'BREVO_LIST_ID_PRESALE',
+  // The name predates this list: BREVO_LIST_ID_FRIENDS was already sitting unused in
+  // .env from a superseded three-list plan, and it is what this list is. Holds list 43.
+  'friends-family': 'BREVO_LIST_ID_FRIENDS',
   'mailing-list': 'BREVO_LIST_ID_MAILING',
   'early-access': 'BREVO_LIST_ID_EARLY_ACCESS',
   'general-onsale': 'BREVO_LIST_ID_GENERAL',

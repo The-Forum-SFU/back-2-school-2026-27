@@ -17,6 +17,7 @@ import { ROUTES } from './routes'
 const Landing = lazy(() => import('./App'))
 const Tickets = lazy(() => import('./pages/Tickets'))
 const Guestlist = lazy(() => import('./pages/Guestlist'))
+const FriendsGuestlist = lazy(() => import('./pages/FriendsGuestlist'))
 const Confirmed = lazy(() => import('./pages/Confirmed'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 
@@ -39,6 +40,8 @@ createRoot(document.getElementById('root')!).render(
           {/* Paired with `/` by a live redirect in both directions. See ROUTES.TICKETS. */}
           <Route path={ROUTES.TICKETS} element={<Tickets />} />
           <Route path={ROUTES.GUESTLIST} element={<Guestlist />} />
+          {/* The same page on a second path, feeding a second pool. See ROUTES. */}
+          <Route path={ROUTES.FRIENDS_GUESTLIST} element={<FriendsGuestlist />} />
           <Route path={ROUTES.CONFIRMED} element={<Confirmed />} />
           {/* Must be a real route, not the catch-all below: the form's consent notice
               links here and records that sentence against every submission. */}

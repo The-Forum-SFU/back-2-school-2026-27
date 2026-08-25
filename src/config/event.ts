@@ -22,6 +22,7 @@ import { ROUTES } from '../routes'
 
 export type TicketType =
   | 'presale-guestlist'
+  | 'friends-family'
   | 'mailing-list'
   | 'early-access'
   | 'general-onsale'
@@ -125,6 +126,16 @@ export type ListConfig = {
   } | null
   /** Shown on the full/closed panel. `time: null` omits the time entirely. */
   ticketDrop?: { date: string; time: string | null; label: string }
+  /**
+   * The route this list's form lives on, for anything that needs to send someone BACK to
+   * it. Read from ROUTES, never written out, so a path still exists in exactly one place.
+   *
+   * Only lists with a page of their own have one. /confirmed is shared by every list and
+   * used to link its correction note at ROUTES.GUESTLIST unconditionally, which was
+   * correct only while the guestlist was the single list that reached it. With two
+   * guestlists on two routes that link has to come from the config that got there.
+   */
+  formHref?: string
   copy: SignupCopy
 }
 
@@ -493,6 +504,52 @@ const CONFIRMATION_BODY =
   'Check your inbox for your confirmation email and instructions. Check spam and ' +
   'promotions too if you do not see it.'
 
+/**
+ * The reason to come, shared by every list that sells the night rather than a logistic.
+ *
+ * Was written out per list, which was two copies before the friends & family guestlist
+ * and would be three after it. It is the same paragraph every time because it is the
+ * same party, and the version that gets edited is never the one someone is reading.
+ *
+ * Carries NO date, venue or door time: those live in `detailsLine`, and the split is
+ * asserted in tests/src/event.test.ts. Keep this the pitch.
+ */
+const LIST_PITCH =
+  `Join us at ${EVENT.tagline}. This year, with a special throwback edition. We will be ` +
+  'playing your favourite songs throughout the last decades, where you will be able to ' +
+  'sing along!'
+
+/**
+ * The door panel, shared by every discounted guestlist.
+ *
+ * ONE copy, referenced twice, because these are the venue's conditions and not one
+ * list's: the arrival time, the cash amount, the ID requirement and the cutoff are the
+ * same facts whichever link somebody was sent. Two hand-maintained copies is how the
+ * friends & family list ends up quoting last month's cutoff to people standing outside.
+ *
+ * One paragraph rather than four bullets. Every fact here is a condition of getting in
+ * at the rate they were promised, and a bulleted list invites skimming exactly the line
+ * someone cannot afford to miss.
+ */
+const GUESTLIST_DOOR_INSTRUCTIONS = {
+  title: 'Important note',
+  lines: [
+    `Arrive by ${EVENT.venue.doorsOpen} when doors open. Give the staff the exact name ` +
+      `you entered, {name}, and bring ${DOOR_EARLY} cash and ${EVENT.venue.idRequirement}. ` +
+      `You need to be checked in before ${P.doorCutoff} for the ${DOOR_EARLY} rate. If you ` +
+      `arrive after ${P.doorCutoff}, you will be charged a regular discounted rate at ${DOOR_LATE}.`,
+  ],
+} as const
+
+/** The disclaimer above the submit button. Same reason it is shared as the panel above. */
+const GUESTLIST_TERMS = {
+  termsTitle: 'Please note',
+  termsLines: [
+    `This is not a ticket. It is an RSVP that grants you discounted access at the door ` +
+      `before ${P.doorCutoff} for ${DOOR_EARLY}.`,
+  ],
+} as const
+
 export const LISTS: Record<TicketType, ListConfig> = {
   'presale-guestlist': {
     ticketType: 'presale-guestlist',
@@ -504,18 +561,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
     priceCents: P.doorEarlyCents,
     minAge: 19,
     mode: 'signup',
-    doorInstructions: {
-      title: 'Important note',
-      // One paragraph rather than four bullets. Every fact here is a condition of
-      // getting in at the rate they were promised, and a bulleted list invites skimming
-      // exactly the line someone cannot afford to miss.
-      lines: [
-        `Arrive by ${EVENT.venue.doorsOpen} when doors open. Give the staff the exact name ` +
-          `you entered, {name}, and bring ${DOOR_EARLY} cash and ${EVENT.venue.idRequirement}. ` +
-          `You need to be checked in before ${P.doorCutoff} for the ${DOOR_EARLY} rate. If you ` +
-          `arrive after ${P.doorCutoff}, you will be charged a regular discounted rate at ${DOOR_LATE}.`,
-      ],
-    },
+    doorInstructions: GUESTLIST_DOOR_INSTRUCTIONS,
     nextStep: {
       enabled: EVENT.tickets.enabled && Boolean(EVENT.tickets.url),
       href: EVENT.tickets.url,
@@ -535,26 +581,20 @@ export const LISTS: Record<TicketType, ListConfig> = {
       time: '12 PM',
       label: 'Wave 1',
     },
+    formHref: ROUTES.GUESTLIST,
     copy: {
       eyebrow: 'Early access',
       heading: 'Discounted Guestlist',
       // The pitch only. What used to be here was four facts in one paragraph, which
       // meant the reason to come and the logistics of coming competed for the same
       // sentence. The when and where moved to `detailsLine` below.
-      subheading:
-        `Join us at ${EVENT.tagline}. This year, with a special throwback edition. We will be ` +
-        'playing your favourite songs throughout the last decades, where you will be able to ' +
-        'sing along!',
+      subheading: LIST_PITCH,
       detailsLine: `${formatDoorDate()}. ${EVENT.venue.name}. Doors ${EVENT.venue.doorsOpen}.`,
 
       formHeading: 'Get on the list',
       formSubheading: 'Enter the name you will give at the door.',
       submitLabel: `Claim my ${DOOR_EARLY} spot`,
-      termsTitle: 'Please note',
-      termsLines: [
-        `This is not a ticket. It is an RSVP that grants you discounted access at the door ` +
-          `before ${P.doorCutoff} for ${DOOR_EARLY}.`,
-      ],
+      ...GUESTLIST_TERMS,
 
       successTitle: 'You are on the list.',
       successBody: CONFIRMATION_BODY,
@@ -562,6 +602,88 @@ export const LISTS: Record<TicketType, ListConfig> = {
       alreadyTitle: 'You are already on the list.',
       alreadyBody: CONFIRMATION_BODY,
       closedTitle: 'The discounted guestlist is full',
+      closedBody: `Tickets are the next best thing, and the first ${P.earlyBirdCount} are ${money(P.earlyBirdCents)}.`,
+
+      ...CONSENT_COPY,
+      ...FIELD_COPY,
+    },
+  },
+
+  /**
+   * The friends & family guestlist. Same page, same door rate, its own everything else.
+   *
+   * A SEPARATE `ticket_type` rather than a second route pointed at 'presale-guestlist',
+   * and that is the entire reason this entry exists. `claim_signup` counts capacity with
+   * `where ticket_type = p_ticket_type`, so the pool is the ticket type: sharing one would
+   * have meant these 75 and the promoter list's 75 drawing down a single count of 75, and
+   * whichever list was distributed first would have taken all of it. Two types are two
+   * independent counts, enforced in the database under the same row lock.
+   *
+   * Everything a person actually experiences is deliberately identical to the list above:
+   * the same pitch, the same door instructions, the same disclaimer, the same rate. The
+   * differences are the ones an attendee never sees. Keep it that way. If the door terms
+   * change, they change in GUESTLIST_DOOR_INSTRUCTIONS and both lists move together.
+   *
+   * `closesAt` is the ONE window difference. The promoter list closes Aug 25 because it
+   * was built around the ticket drop; this one runs to the night before doors, because the
+   * link is handed out by hand over weeks rather than pushed out in a campaign.
+   *
+   * Feeds Brevo list 43 via BREVO_LIST_ID_FRIENDS. A different list from the promoter
+   * guestlist's on purpose: these contacts are meant to be countable and mailable as their
+   * own audience, which they cannot be once they are mixed into another list.
+   */
+  'friends-family': {
+    ticketType: 'friends-family',
+    label: 'Friends & Fam Discounted Guestlist',
+    blurb: 'No ticketing fees. Pay at the door.',
+    // Its own pool. Mirrors ticket_lists.capacity for 'friends-family', which is a
+    // separate row from the promoter list's. See 0004_friends_family.sql.
+    capacity: 75,
+    opensAt: '2026-08-10T00:00:00-07:00',
+    // The night before doors. Not the promoter list's Aug 25 date. See the note above.
+    closesAt: '2026-09-19T23:59:59-07:00',
+    priceCents: P.doorEarlyCents,
+    minAge: 19,
+    mode: 'signup',
+    doorInstructions: GUESTLIST_DOOR_INSTRUCTIONS,
+    nextStep: {
+      enabled: EVENT.tickets.enabled && Boolean(EVENT.tickets.url),
+      href: EVENT.tickets.url,
+      label: 'Get tickets',
+      availableFrom: EVENT.ticketDropAt,
+    },
+    ticketDrop: {
+      date: EVENT.ticketDropAt.slice(0, 10),
+      time: '12 PM',
+      label: 'Wave 1',
+    },
+    formHref: ROUTES.FRIENDS_GUESTLIST,
+    copy: {
+      /*
+        Renders as two lines of caps, the kicker over the name: "FRIENDS & FAM" above
+        "DISCOUNTED GUESTLIST". That pair IS the title of this page, which is why the
+        change from the promoter version lives here and not in `heading` — a single
+        48px heading carrying all four words wraps badly on a phone and buries the
+        thing the page is actually offering.
+      */
+      eyebrow: 'Friends & fam',
+      heading: 'Discounted Guestlist',
+      subheading: LIST_PITCH,
+      detailsLine: `${formatDoorDate()}. ${EVENT.venue.name}. Doors ${EVENT.venue.doorsOpen}.`,
+
+      formHeading: 'Get on the list',
+      formSubheading: 'Enter the name you will give at the door.',
+      submitLabel: `Claim my ${DOOR_EARLY} spot`,
+      ...GUESTLIST_TERMS,
+
+      successTitle: 'You are on the list.',
+      successBody: CONFIRMATION_BODY,
+      alreadyTitle: 'You are already on the list.',
+      alreadyBody: CONFIRMATION_BODY,
+      // Names THIS list, not "the discounted guestlist". The two fill independently, so
+      // a panel that spoke about the guestlist in general would tell someone the offer
+      // was gone while the promoter list still had room, or the reverse.
+      closedTitle: 'The friends & fam guestlist is full',
       closedBody: `Tickets are the next best thing, and the first ${P.earlyBirdCount} are ${money(P.earlyBirdCents)}.`,
 
       ...CONSENT_COPY,
@@ -611,10 +733,7 @@ export const LISTS: Record<TicketType, ListConfig> = {
     copy: {
       eyebrow: 'Before tickets drop',
       heading: 'Get first access',
-      subheading:
-        `Join us at ${EVENT.tagline}. This year, with a special throwback edition. We will be ` +
-        'playing your favourite songs throughout the last decades, where you will be able to ' +
-        'sing along!',
+      subheading: LIST_PITCH,
       // No detailsLine, unlike the guestlist. The landing page puts the key art card
       // directly above this heading and that card already lists the date, the venue and
       // the door time, so this slot would be the same three facts a second time in the

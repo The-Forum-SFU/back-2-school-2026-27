@@ -138,7 +138,11 @@ export default function Confirmed() {
         {cfg.copy.correctionNote && (
           <p style={{ ...fineStyle, marginTop: 14 }}>
             {cfg.copy.correctionNote}{' '}
-            <Link to={ROUTES.GUESTLIST} style={{ color: INK }}>
+            {/* The form THEY used. This was ROUTES.GUESTLIST unconditionally, which was
+                only ever right while one list reached this page: a friends & family
+                signup following it would land on the promoter form and be counted
+                against the wrong pool. */}
+            <Link to={cfg.formHref ?? ROUTES.GUESTLIST} style={{ color: INK }}>
               Back to the form
             </Link>
             .

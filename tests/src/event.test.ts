@@ -18,6 +18,7 @@ import {
   type ListConfig,
 } from '../../src/config/event'
 import { PRIVACY_SECTIONS } from '../../src/config/privacy'
+import { ROUTES } from '../../src/routes'
 
 /** Drops comments so a guard reads the code and not the prose explaining it. */
 function stripComments(src: string): string {
@@ -38,6 +39,12 @@ function readSrc(path: string): string {
  */
 
 const GUESTLIST = LISTS['presale-guestlist']
+const FRIENDS = LISTS['friends-family']
+/** Both discounted guestlists, wherever a rule is about the offer and not about one list. */
+const GUESTLISTS: readonly [name: string, cfg: ListConfig][] = [
+  ['presale-guestlist', GUESTLIST],
+  ['friends-family', FRIENDS],
+]
 
 /** Every user-facing string in the config, with a path for a readable failure. */
 function allCopy(): [string, string][] {
@@ -396,5 +403,104 @@ describe('copy compliance', () => {
     for (const cfg of Object.values(LISTS)) {
       if (cfg.nextStep?.enabled) expect(cfg.nextStep.href).toBeTruthy()
     }
+  })
+})
+
+/**
+ * The friends & family guestlist.
+ *
+ * A clone of the promoter list on a second route, and the reason it is a whole second
+ * `ticket_type` rather than a second path pointing at the first one is the SEPARATE
+ * POOL. `claim_signup` counts capacity with `where ticket_type = p_ticket_type`, so the
+ * ticket type IS the pool: one shared type would have meant one shared count of 75, and
+ * whichever link was distributed first would have spent all of it.
+ *
+ * These guards are therefore about two things. That the two lists are genuinely separate
+ * where separation is the point, and that they are identical everywhere a person can see,
+ * because the offer at the door is the same offer.
+ */
+describe('friends & family guestlist', () => {
+  it('is its own pool, which is the entire reason it is a separate ticket type', () => {
+    // If these are ever equal, the two routes share one count and one of them will be
+    // told it is full while its own list is empty.
+    expect(FRIENDS.ticketType).not.toBe(GUESTLIST.ticketType)
+    expect(FRIENDS.ticketType).toBe('friends-family')
+    // Same size ask, counted independently. Mirrors the row in 0004_friends_family.sql.
+    expect(FRIENDS.capacity).toBe(75)
+    expect(GUESTLIST.capacity).toBe(75)
+  })
+
+  it('carries the title the page is asked to show, as kicker over name', () => {
+    // Rendered as two lines of caps by ListSection, which reads "FRIENDS & FAM" above
+    // "DISCOUNTED GUESTLIST". The kicker is what changed from the promoter list; the
+    // name below it did not, because it is the same offer.
+    expect(FRIENDS.copy.eyebrow).toBe('Friends & fam')
+    expect(FRIENDS.copy.heading).toBe('Discounted Guestlist')
+    expect(`${FRIENDS.copy.eyebrow} ${FRIENDS.copy.heading}`).toBe(
+      'Friends & fam Discounted Guestlist',
+    )
+    // And it is NOT the promoter list's kicker, which is the line being replaced.
+    expect(FRIENDS.copy.eyebrow).not.toBe(GUESTLIST.copy.eyebrow)
+  })
+
+  it('offers the identical deal at the door, from the identical strings', () => {
+    // Same object, not an equal copy: the door terms are the venue's conditions, so a
+    // second hand-maintained copy is how one list ends up quoting a stale cutoff to
+    // people standing outside.
+    expect(FRIENDS.doorInstructions).toBe(GUESTLIST.doorInstructions)
+    expect(FRIENDS.copy.termsLines).toBe(GUESTLIST.copy.termsLines)
+    expect(FRIENDS.copy.subheading).toBe(GUESTLIST.copy.subheading)
+    expect(FRIENDS.priceCents).toBe(GUESTLIST.priceCents)
+    expect(FRIENDS.priceCents).toBe(EVENT.pricing.doorEarlyCents)
+    expect(FRIENDS.minAge).toBe(GUESTLIST.minAge)
+    expect(FRIENDS.copy.submitLabel).toBe(GUESTLIST.copy.submitLabel)
+  })
+
+  it('runs its own window, to the night before doors', () => {
+    // The promoter list was built around the ticket drop and closes Aug 25. This link is
+    // handed out by hand over weeks, so it stays open until there is no night left.
+    expect(FRIENDS.closesAt).not.toBe(GUESTLIST.closesAt)
+    expect(FRIENDS.closesAt).toBe('2026-09-19T23:59:59-07:00')
+    // Explicit offset, or a bare string parses as the visitor's local time and the
+    // client and server disagree about when the list shut.
+    expect(FRIENDS.closesAt).toMatch(/[+-]\d{2}:\d{2}$/)
+    expect(FRIENDS.opensAt).toMatch(/[+-]\d{2}:\d{2}$/)
+    // It closes before the door opens, not after.
+    expect(new Date(FRIENDS.closesAt).getTime()).toBeLessThan(
+      new Date(`${EVENT.doorDate}T00:00:00-07:00`).getTime(),
+    )
+    expect(new Date(FRIENDS.opensAt).getTime()).toBeLessThan(
+      new Date(FRIENDS.closesAt).getTime(),
+    )
+  })
+
+  it('names itself on the full panel rather than "the guestlist"', () => {
+    // The two fill independently, so a panel speaking about the guestlist in general
+    // would tell someone the offer was gone while the other list still had room.
+    expect(FRIENDS.copy.closedTitle).toBe('The friends & fam guestlist is full')
+    expect(FRIENDS.copy.closedTitle).not.toBe(GUESTLIST.copy.closedTitle)
+  })
+
+  it('sends a correction back to the form that list actually uses', () => {
+    // /confirmed is shared by every list. Its correction note used to link at the
+    // promoter route unconditionally, which would have walked a friends & family signup
+    // onto the wrong form and into the wrong pool.
+    expect(FRIENDS.formHref).toBe(ROUTES.FRIENDS_GUESTLIST)
+    expect(GUESTLIST.formHref).toBe(ROUTES.GUESTLIST)
+    expect(FRIENDS.formHref).not.toBe(GUESTLIST.formHref)
+  })
+
+  it.each(GUESTLISTS)('mirrors %s into the migrations, which are authoritative', (type, cfg) => {
+    // src/config is a first-frame render of values the database owns. When they drift,
+    // the page shows a form for a list the server has already closed.
+    const sql = readdirSync(join(process.cwd(), 'supabase/migrations'))
+      .map((f) => readFileSync(join(process.cwd(), 'supabase/migrations', f), 'utf8'))
+      .join('\n')
+    // The seed row, as a single quoted tuple: type, label, capacity, opens, closes.
+    const row = new RegExp(
+      `\\('${type}',\\s*'[^']*',\\s*${cfg.capacity},\\s*` +
+        `'${cfg.opensAt}',\\s*'${cfg.closesAt}',\\s*'${EVENT.doorDate}',\\s*${cfg.priceCents},`,
+    )
+    expect(sql, `no seed row matching ${type} in supabase/migrations`).toMatch(row)
   })
 })
