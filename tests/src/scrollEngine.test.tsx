@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useScrollEngine } from '../../src/lib/useScrollEngine'
 
 /**
- * The scroll engine, and specifically the one place where `window.scrollY` lies.
+ * The scroll engine, andspecifically the one place where `window.scrollY` lies.
  *
  * Everything else this file drives is a straight read of scroll position, and reads fine.
  * The outro block is different because it contains the only inputs on the fixed stack: on a
