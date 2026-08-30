@@ -110,6 +110,10 @@ describe('discoverability', () => {
       'src/pages/Guestlist.tsx',
       'src/pages/FriendsGuestlist.tsx',
       'src/pages/Confirmed.tsx',
+      // Reached by a redirect out of Brevo rather than from inside the app, which is
+      // exactly why it needs the tag: nothing links to it, so search is the only way it
+      // could ever be found.
+      'src/pages/VipConfirmed.tsx',
     ]) {
       expect(src(file), file).toContain('useNoIndex()')
     }

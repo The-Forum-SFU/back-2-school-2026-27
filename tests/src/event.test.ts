@@ -11,6 +11,7 @@ import {
   formatDropDate,
   formatShortDate,
   LISTS,
+  VIP_CONFIRMED_COPY,
   money,
   percentOff,
   resolveListPhase,
@@ -57,6 +58,14 @@ function allCopy(): [string, string][] {
     }
   }
   for (const [type, cfg] of Object.entries(LISTS)) walk(cfg, type)
+  /*
+    NOT a LISTS entry, and so not reached by the loop above. VIP_CONFIRMED_COPY is the
+    copy for /vip-confirmed, which serves a Brevo-hosted form with no ticket type — see
+    the note on the const. Every compliance rule below is about what a person reads, not
+    about which table a row lands in, so copy that renders on a page has to be walked
+    whether or not it hangs off a list config. Add any future standalone copy const here.
+  */
+  walk(VIP_CONFIRMED_COPY, 'VIP_CONFIRMED_COPY')
   return out
 }
 

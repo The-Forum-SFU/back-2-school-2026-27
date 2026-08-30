@@ -1,18 +1,18 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FONT } from '../assets'
+import {
+  CalendarButton,
+  DoorPanel,
+  EventDetails,
+  fineStyle,
+  headingStyle,
+  subStyle,
+} from '../components/confirmation'
 import PaperPage from '../components/PaperPage'
 import PriceComparison from '../components/PriceComparison'
-import { INK, MUTED, RULE } from '../components/form/Field'
-import {
-  calendarUrl,
-  EVENT,
-  fill,
-  formatDoorDate,
-  LISTS,
-  type TicketType,
-} from '../config/event'
+import { INK } from '../components/form/Field'
+import { calendarUrl, fill, LISTS, type TicketType } from '../config/event'
 import { useNoIndex } from '../lib/useNoIndex'
-import { useViewport, type Viewport } from '../lib/viewport'
+import { useViewport } from '../lib/viewport'
 import { ROUTES } from '../routes'
 
 /**
@@ -32,6 +32,11 @@ import { ROUTES } from '../routes'
  * than guarded: `Confirmation` renders a version with no personalisation instead of a
  * blank page or a redirect. Someone who reloads this page still needs the door
  * instructions.
+ *
+ * NOT the only confirmation page any more. `/vip-confirmed` serves the Brevo-hosted VIP
+ * form, which has no ticket type and never reaches /api/signup. The layout both pages
+ * share lives in src/components/confirmation.tsx; what stays here is everything that
+ * depends on a LISTS entry, which is exactly what that page does not have.
  */
 
 export type ConfirmedState = {
@@ -114,25 +119,14 @@ export default function Confirmed() {
         {hasDoorRate && <PriceComparison vp={vp} variant="calm" />}
 
         {cfg.doorInstructions && (
-          <section
-            style={{
-              background: 'rgba(0,0,0,0.05)',
-              border: `1px solid ${RULE}`,
-              borderRadius: 4,
-              padding: '16px 18px',
-            }}
-          >
-            <h2 style={{ ...panelTitleStyle }}>{cfg.doorInstructions.title}</h2>
-            <ul style={listReset}>
-              {cfg.doorInstructions.lines.map((line) => (
-                <li key={line} style={panelItemStyle}>
-                  {/* Without state we cannot name them, so the line falls back to
-                      describing the name rather than printing an empty one. */}
-                  {fill(line, { name: state ? fullName(state) : 'the name you entered' })}
-                </li>
-              ))}
-            </ul>
-          </section>
+          <DoorPanel
+            title={cfg.doorInstructions.title}
+            // Without state we cannot name them, so the line falls back to describing
+            // the name rather than printing an empty one.
+            lines={cfg.doorInstructions.lines.map((line) =>
+              fill(line, { name: state ? fullName(state) : 'the name you entered' }),
+            )}
+          />
         )}
 
         {cfg.copy.correctionNote && (
@@ -153,27 +147,7 @@ export default function Confirmed() {
             now says exactly that, and repeating it either side of the door panel made
             the page look like it had lost its place. */}
 
-        <a
-          href={calendarUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block',
-            marginTop: 28,
-            fontFamily: FONT,
-            fontWeight: 500,
-            fontSize: vp.isMobile ? 15 : 17,
-            letterSpacing: '-0.02em',
-            textTransform: 'uppercase',
-            color: '#fff',
-            background: INK,
-            borderRadius: 999,
-            padding: vp.isMobile ? '16px 28px' : '18px 36px',
-            textDecoration: 'none',
-          }}
-        >
-          Add to calendar
-        </a>
+        <CalendarButton href={calendarUrl()} />
 
         <EventDetails vp={vp} />
       </div>
@@ -183,86 +157,4 @@ export default function Confirmed() {
 
 function fullName(state: ConfirmedState): string {
   return `${state.firstName} ${state.lastName}`.trim()
-}
-
-function EventDetails({ vp }: { vp: Viewport }) {
-  const { venue } = EVENT
-  const lines = [
-    `${EVENT.name}: ${EVENT.tagline}`,
-    formatDoorDate(),
-    `Doors ${venue.doorsOpen}${venue.doorsClose ? ` to ${venue.doorsClose}` : ''}`,
-    venue.address ? `${venue.name}, ${venue.address}` : venue.name,
-    `${venue.ageRestriction}, ${venue.idRequirement}`,
-  ]
-
-  return (
-    <section
-      style={{
-        marginTop: vp.isDesktop ? 72 : 56,
-        paddingTop: vp.isDesktop ? 32 : 24,
-        borderTop: `1px solid ${RULE}`,
-      }}
-    >
-      <h2 style={{ ...bodyStyle, color: MUTED, marginBottom: 14, textTransform: 'uppercase' }}>
-        Event details
-      </h2>
-      {lines.map((line, i) => (
-        <p key={line} style={{ ...bodyStyle, marginTop: i === 0 ? 0 : 4 }}>
-          {line}
-        </p>
-      ))}
-    </section>
-  )
-}
-
-function headingStyle(vp: Viewport) {
-  return {
-    fontFamily: FONT,
-    fontWeight: 500,
-    fontSize: vp.isDesktop ? 64 : 40,
-    lineHeight: '95%',
-    letterSpacing: '-0.04em',
-    textTransform: 'uppercase' as const,
-    color: INK,
-  }
-}
-
-function subStyle(vp: Viewport) {
-  return {
-    fontFamily: FONT,
-    fontWeight: 500,
-    fontSize: vp.isDesktop ? 19 : 16,
-    lineHeight: '140%',
-    letterSpacing: '-0.02em',
-    color: INK,
-  }
-}
-
-const bodyStyle = {
-  fontFamily: FONT,
-  fontWeight: 500,
-  fontSize: 13,
-  lineHeight: '160%',
-  letterSpacing: '-0.02em',
-  color: INK,
-}
-
-const fineStyle = { ...bodyStyle, fontSize: 12, color: MUTED }
-
-const panelTitleStyle = {
-  ...bodyStyle,
-  fontSize: 12,
-  textTransform: 'uppercase' as const,
-  marginBottom: 8,
-}
-
-const panelItemStyle = { ...bodyStyle, fontSize: 12, lineHeight: '150%' }
-
-const listReset = {
-  listStyle: 'none',
-  margin: 0,
-  padding: 0,
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 6,
 }

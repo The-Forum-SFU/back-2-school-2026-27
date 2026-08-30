@@ -45,6 +45,26 @@ export const ROUTES = {
   /** Where every guestlist submission lands. */
   CONFIRMED: '/confirmed',
   /**
+   * Where the VIP guest list lands, and the one route here that nothing in this app
+   * navigates to.
+   *
+   * The VIP form is a Brevo-hosted document at public/vip.html, outside the router
+   * entirely, so the only way anyone arrives is Brevo's own "after submission → redirect
+   * to a URL" setting pointing at this path. That is a dashboard setting, not code: until
+   * somebody flips it, this page is correct and unreachable.
+   *
+   * A cold page load with no router state, therefore, ALWAYS. VipConfirmed takes no state
+   * and reads none — see the note on VIP_CONFIRMED_COPY in src/config/event.ts.
+   *
+   * Guessable on purpose, unlike the two list routes above. There is nothing on it worth
+   * protecting: no name, no email, no offer, and no way to join anything from it. It is
+   * still noindex, because a confirmation page has no business in search results.
+   *
+   * Not '/vip/confirmed': `/vip` is a rewrite to a static file in vercel.json, and a path
+   * underneath it would read like it belongs to that document rather than to the SPA.
+   */
+  VIP_CONFIRMED: '/vip-confirmed',
+  /**
    * Alias for CONFIRMED. The build plan writes this path as `/…/confirmed`; "confirmation"
    * is the spelling people reach for from memory. One redirect is cheaper than a
    * support message about a blank page.

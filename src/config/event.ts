@@ -449,6 +449,45 @@ export const OUTRO_SIGNUP_COPY = {
 }
 
 /**
+ * `/vip-confirmed` — the landing page for the VIP guest list.
+ *
+ * NOT A LISTS ENTRY, and that is the same call `SUBSCRIBE_LIST_ENV` makes in
+ * api/_lib/brevo.ts. LISTS is keyed by TicketType, which is the write-path contract:
+ * every key is a `ticket_lists` row that `claim_signup` locks for capacity, and the
+ * union is redeclared in api/_lib/types.ts to prove it. The VIP form is hosted by Brevo
+ * (public/vip.html), posts straight to Brevo, and reaches none of that. A key here would
+ * mean inventing a capacity, a window and a submit label for a form this codebase does
+ * not render.
+ *
+ * NO PRICES, anywhere in this block, and it is not an oversight to be tidied up later:
+ * this list is free entry. There is no door rate to compare against, so the $5-versus-$30
+ * panel that /confirmed shows would be describing an offer that does not exist here.
+ *
+ * NO {name} PLACEHOLDER either, unlike GUESTLIST_DOOR_INSTRUCTIONS below. That page is
+ * reached by `navigate(..., { state })` and can fill one. This one is reached by a
+ * redirect from Brevo, on a cold page load, so there is never any state to fill it from
+ * and the placeholder would fall back one hundred per cent of the time. The fallback
+ * wording is written out directly instead.
+ *
+ * ⚠️ NO ARRIVAL CUTOFF. The discounted guestlists have one (`P.doorCutoff`), but that is
+ * the hour their rate changes — a price mechanism, and this list has no price. If VIP
+ * entry actually closes at some hour, that is a fact the venue owns and it belongs in
+ * `doorLines`. Do not infer one from the guestlist copy: a cutoff invented on a
+ * confirmation page is a promise about a door that nobody agreed to keep.
+ */
+export const VIP_CONFIRMED_COPY = {
+  title: 'You are on the VIP guest list.',
+  body: 'Check your inbox. A confirmation email is on its way.',
+  doorTitle: 'Important note',
+  doorLines: [
+    `Arrive by ${EVENT.venue.doorsOpen} when doors open. Bring ` +
+      `${EVENT.venue.idRequirement}, and give the staff the exact name you entered on ` +
+      `the form. It has to match the name on your ID. This event is ` +
+      `${EVENT.venue.ageRestriction}.`,
+  ],
+} as const
+
+/**
  * Shared consent wording.
  *
  * There is no age checkbox any more. The birthdate is the attestation, and it is a

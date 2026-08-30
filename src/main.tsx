@@ -19,6 +19,7 @@ const Tickets = lazy(() => import('./pages/Tickets'))
 const Guestlist = lazy(() => import('./pages/Guestlist'))
 const FriendsGuestlist = lazy(() => import('./pages/FriendsGuestlist'))
 const Confirmed = lazy(() => import('./pages/Confirmed'))
+const VipConfirmed = lazy(() => import('./pages/VipConfirmed'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 
 // Matches the global body background so a chunk's load window doesn't flash.
@@ -43,6 +44,9 @@ createRoot(document.getElementById('root')!).render(
           {/* The same page on a second path, feeding a second pool. See ROUTES. */}
           <Route path={ROUTES.FRIENDS_GUESTLIST} element={<FriendsGuestlist />} />
           <Route path={ROUTES.CONFIRMED} element={<Confirmed />} />
+          {/* Reached only from outside the app: Brevo redirects here after the VIP form
+              at /vip.html is submitted. See ROUTES.VIP_CONFIRMED. */}
+          <Route path={ROUTES.VIP_CONFIRMED} element={<VipConfirmed />} />
           {/* Must be a real route, not the catch-all below: the form's consent notice
               links here and records that sentence against every submission. */}
           <Route path={ROUTES.PRIVACY} element={<Privacy />} />
