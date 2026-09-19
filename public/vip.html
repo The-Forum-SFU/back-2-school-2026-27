@@ -105,6 +105,100 @@ color: #2BB2FC;
       html, body { margin: 0; padding: 0; background-color: #0e0e0e; }
       .sib-form { min-height: 100vh; }
     </style>
+
+    <!--
+      THE CLOSING TIME. The guest list shuts at 8:00 PM Friday 18 September 2026,
+      Vancouver time. Vancouver is on PDT (UTC-7) in September, so that instant is
+      2026-09-19T03:00:00Z — written in UTC below precisely so a viewer's own timezone
+      cannot move it. Everyone closes at the same moment, wherever they are reading from.
+
+      The gate runs in the head so the form is never painted after the cutoff, and again
+      below the markup where it removes the form node outright, before Brevo's deferred
+      main.js has run. A removed form cannot be submitted by someone who sat on the page.
+
+      This is the PAGE half of closing. It is not the whole close: the form POSTs straight
+      to Brevo (see the form's action), so a tab opened before the cutoff, or anyone
+      holding the sibforms.com URL, can still submit. The authoritative close is
+      deactivating the form in Brevo itself.
+    -->
+    <script>
+      (function () {
+        var CLOSES_AT = Date.parse('2026-09-19T03:00:00Z');
+        if (Date.now() >= CLOSES_AT) {
+          document.documentElement.className += ' list-closed';
+        }
+      })();
+    </script>
+    <style>
+      #closed-screen { display: none; }
+      .list-closed .sib-form { display: none !important; }
+      .list-closed #closed-screen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 100vh;
+        min-height: 100svh;
+        box-sizing: border-box;
+        padding: 40px 24px;
+        font-family: Helvetica, Arial, sans-serif;
+        color: #E3EFED;
+        background-color: #0e0e0e;
+        background-image:
+          linear-gradient(rgba(14, 14, 14, 0.82), rgba(14, 14, 14, 0.82)),
+          url(https://img.mailinblue.com/8982150/images/content_library/original/6a920c6cb78d2377e8dbc401.png);
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center center;
+      }
+      #closed-screen .closed-card {
+        max-width: 540px;
+        width: 100%;
+      }
+      #closed-screen .closed-eyebrow {
+        margin: 0 0 18px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #46D5C8;
+      }
+      #closed-screen h1 {
+        margin: 0 0 16px;
+        font-size: 32px;
+        line-height: 1.2;
+        font-weight: 700;
+        color: #f8f8f8;
+      }
+      #closed-screen p {
+        margin: 0 auto;
+        max-width: 42ch;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #fdfdfd;
+      }
+      #closed-screen .closed-rule {
+        width: 48px;
+        height: 2px;
+        margin: 28px auto;
+        background: #46D5C8;
+        border: 0;
+      }
+      #closed-screen .closed-back {
+        display: inline-block;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        color: #46D5C8;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(70, 213, 200, 0.4);
+        padding-bottom: 2px;
+      }
+      #closed-screen .closed-back:hover { color: #4CEFC6; }
+      @media (max-width: 420px) {
+        #closed-screen h1 { font-size: 26px; }
+      }
+    </style>
   </head>
   <body>
 
@@ -1455,6 +1549,25 @@ max-width:540px;">
 <!-- END - We recommend to place the above code where you want the form in your website html  -->
 
 <!-- START - We recommend to place the below code in footer or bottom of your website html  -->
+<div id="closed-screen">
+  <div class="closed-card">
+    <p class="closed-eyebrow">Rewind &middot; VIP Guest List</p>
+    <h1>Sorry &mdash; the guest list is closed.</h1>
+    <p>Sign-ups shut at 8:00 PM on Friday, September 18. Thanks to everyone who got on the list &mdash; see you Sunday.</p>
+    <hr class="closed-rule" />
+    <a class="closed-back" href="https://rewind.theforumuniversity.com/">rewind.theforumuniversity.com</a>
+  </div>
+</div>
+
+<script>
+  /* The cutoff has passed: take the form off the page before Brevo's deferred
+     main.js can bind to it, so a stale tab has nothing left to submit. */
+  if (document.documentElement.className.indexOf('list-closed') !== -1) {
+    var closedForm = document.querySelector('.sib-form');
+    if (closedForm && closedForm.parentNode) closedForm.parentNode.removeChild(closedForm);
+  }
+</script>
+
 <script>
 window.REQUIRED_CODE_ERROR_MESSAGE = 'Please choose a country code';
 window.LOCALE = 'en';
